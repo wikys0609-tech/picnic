@@ -1,8 +1,9 @@
 import { defineCollection, reference, z } from 'astro:content';
+import { glob } from 'astro/loaders';
 
-// 장소 컬렉션 (가이드형 데이터)
+// 장소 컬렉션 (가이드형 데이터) - Astro 5 Content Layer
 const placesCollection = defineCollection({
-  type: 'content',
+  loader: glob({ pattern: '**/*.md', base: './src/content/places' }),
   schema: z.object({
     name: z.string({
       required_error: '장소명(name)은 필수입니다.',
@@ -28,9 +29,9 @@ const placesCollection = defineCollection({
   }),
 });
 
-// 산책 기록 컬렉션 (일기형 데이터 - 사이트의 중심)
+// 산책 기록 컬렉션 (일기형 데이터 - 사이트의 중심) - Astro 5 Content Layer
 const walksCollection = defineCollection({
-  type: 'content',
+  loader: glob({ pattern: '**/*.md', base: './src/content/walks' }),
   schema: z.object({
     title: z.string({
       required_error: '제목(title)은 필수입니다.',
@@ -44,7 +45,7 @@ const walksCollection = defineCollection({
     photoFolder: z.string().optional(),
     cover: z.string().optional(),
     captions: z.record(z.string()).optional(),
-    route: z.string().optional(),
+    route: z.string().optional(), // GPX 파일 경로 (걸은 경로, 선택)
     tags: z.array(z.string()).default([]),
     draft: z.boolean().default(false),
   }),

@@ -52,7 +52,7 @@ const places = await getCollection('places');
             </div>
 
             <h3 class="font-serif text-lg font-bold text-ink-900 dark:text-paper-100 mb-2">
-              <a href={baseUrl(`/places/${place.slug || place.id.replace(/\.md$/, '')}`)} class="hover:text-terracotta-600 dark:hover:text-terracotta-100 transition-colors">
+              <a href={baseUrl(`/places/${place.id}`)} class="hover:text-terracotta-600 dark:hover:text-terracotta-100 transition-colors">
                 {place.data.name}
               </a>
             </h3>

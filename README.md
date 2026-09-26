@@ -56,16 +56,24 @@ npm run build
 ## 📋 외부 서비스 설정 체크리스트 (사용자 직접 설정)
 
 ### [ ] 1. 카카오 개발자 콘솔 (Kakao Developers) 설정 (Phase 2 필요)
-1. [Kakao Developers](https://developers.kakao.com/)에 로그인 후 애플리케이션 추가
+1. [Kakao Developers](https://developers.kakao.com/)에 로그인 후 애플리케이션 추가 (예: `소풍`)
 2. **앱 설정 > 앱 키**에서 **JavaScript 키** 복사
-   - 로컬 `.env`의 `PUBLIC_KAKAO_MAP_KEY`로 설정
-3. **앱 설정 > 플랫폼 > Web 플랫폼 등록**:
-   - `http://localhost:4321` (로컬 개발용)
-   - `https://wikys0609-tech.github.io` (GitHub Pages 운영용)
+   - 로컬 `.env` 파일에 `PUBLIC_KAKAO_MAP_KEY=자바스크립트_키` 형식으로 입력
+3. **카카오맵 사용 설정 활성화 (2024-12-01 이후 신규 앱 필수)**:
+   - 좌측 메뉴 **[제품 설정] > [카카오맵]** 메뉴로 이동하여 **"카카오맵 사용 설정"**을 `ON`(활성화)으로 전환
+   - ⚠️ **중요 (2026-07-21 카카오 정책 변경)**: 계정당 첫 번째로 카카오맵을 활성화한 1개 애플리케이션에만 무료 쿼터가 제공됩니다. 따라서 본 사이트용 앱에서 카카오맵을 활성화해 주셔야 합니다.
+4. **플랫폼 키 도메인 등록**:
+   - 좌측 메뉴 **[앱 설정] > [플랫폼]** > Web 선택
+   - 또는 **[앱 설정] > [플랫폼 키] > JavaScript 키 선택 > "JavaScript SDK 도메인"**에 아래 두 도메인을 등록:
+     - `http://localhost:4321` (로컬 개발용)
+     - `https://wikys0609-tech.github.io` (운영 배포용)
 
-### [ ] 2. GitHub Pages 활성화 (Phase 3 배포 시)
+### [ ] 2. GitHub Pages 활성화 및 Repository Variables 등록 (Phase 3 배포 시)
 1. GitHub 저장소(`wikys0609-tech/picnic`)의 **Settings > Pages** 진입
-2. **Build and deployment > Source**를 **GitHub Actions**로 선택
+   - **Build and deployment > Source**를 **GitHub Actions**로 선택
+2. **Settings > Secrets and variables > Actions > Variables** 탭 진입
+   - `PUBLIC_KAKAO_MAP_KEY` 이름으로 위에서 발급받은 카카오 JavaScript 키 등록
+   - *(클라이언트 공개용 키이며 도메인 제한으로 보호되므로 Secrets가 아닌 Variables로 관리)*
 
 ### [ ] 3. GitHub Fine-grained PAT 발급 (Phase 4 모바일 작성도구 시)
 - 모바일에서 `/write` 접속 시 1회 입력할 토큰:

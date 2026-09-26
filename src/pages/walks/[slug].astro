@@ -1,5 +1,5 @@
 ---
-import { getCollection, getEntries } from 'astro:content';
+import { getCollection, getEntries, render } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import WalkCover from '@/components/walk/WalkCover.astro';
 import PhotoGallery from '@/components/walk/PhotoGallery.astro';
@@ -34,7 +34,7 @@ export async function getStaticPaths() {
     const nextWalk = index - 1 >= 0 ? walks[index - 1] : null;
 
     return {
-      params: { slug: walk.slug },
+      params: { slug: walk.id },
       props: { walk, prevWalk, nextWalk },
     };
   });
@@ -56,7 +56,7 @@ const {
 } = walk.data;
 
 const resolvedPlaces = await getEntries(places);
-const { Content } = await walk.render();
+const { Content } = await render(walk);
 ---
 
 <BaseLayout title={title} description={`${formatDateKorean(date)} 산책 기록: ${title}`}>
@@ -118,7 +118,7 @@ const { Content } = await walk.render();
         </span>
         {resolvedPlaces.map((place) => (
           <a
-            href={baseUrl(`/places/${place.slug || place.id.replace(/\.md$/, '')}`)}
+            href={baseUrl(`/places/${place.id}`)}
             class="inline-flex items-center gap-1 text-xs font-medium text-forest-700 dark:text-forest-100 bg-forest-50 dark:bg-night-800 px-2.5 py-1 rounded-md hover:bg-forest-100 dark:hover:bg-night-700 transition-colors"
           >
             <span>{place.data.name}</span>
@@ -163,7 +163,7 @@ const { Content } = await walk.render();
               <span class="text-ink-400">({place.data.sido} {place.data.sigungu})</span>
             </div>
             <a
-              href={baseUrl(`/places/${place.slug || place.id.replace(/\.md$/, '')}`)}
+              href={baseUrl(`/places/${place.id}`)}
               class="text-terracotta-600 dark:text-terracotta-100 hover:underline"
             >
               장소 정보 &rarr;
@@ -192,7 +192,7 @@ const { Content } = await walk.render();
     <nav class="mt-12 pt-8 border-t border-paper-200 dark:border-night-800 grid grid-cols-1 sm:grid-cols-2 gap-4">
       {prevWalk ? (
         <a
-          href={baseUrl(`/walks/${prevWalk.slug}`)}
+          href={baseUrl(`/walks/${prevWalk.id}`)}
           class="group flex flex-col p-4 rounded-xl border border-paper-200 dark:border-night-800 hover:border-terracotta-200 dark:hover:border-terracotta-700/50 bg-white dark:bg-night-900/40 transition-all text-left"
         >
           <span class="inline-flex items-center text-xs text-ink-400 group-hover:text-terracotta-600 mb-1">
@@ -212,7 +212,7 @@ const { Content } = await walk.render();
 
       {nextWalk && (
         <a
-          href={baseUrl(`/walks/${nextWalk.slug}`)}
+          href={baseUrl(`/walks/${nextWalk.id}`)}
           class="group flex flex-col p-4 rounded-xl border border-paper-200 dark:border-night-800 hover:border-terracotta-200 dark:hover:border-terracotta-700/50 bg-white dark:bg-night-900/40 transition-all text-right sm:col-start-2"
         >
           <span class="inline-flex items-center justify-end text-xs text-ink-400 group-hover:text-terracotta-600 mb-1">

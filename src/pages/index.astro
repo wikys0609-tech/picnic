@@ -59,6 +59,7 @@ const visitedSigungu = new Set(allPlaces.map((p) => `${p.data.sido} ${p.data.sig
           >
             <Trophy class="w-4 h-4 text-amber-500" />
             <span class="text-ink-500 dark:text-ink-400">정복한 구역</span>
+            {/* NOTE: 83개 구역 총 수는 현재 임시 상수이며, Phase 6에서 GeoJSON 경계 데이터 기반 동적 계산으로 교체됩니다. */}
             <strong class="font-semibold text-terracotta-600 dark:text-terracotta-100">{visitedSigungu.size} / 83</strong>
             <ArrowRight class="w-3.5 h-3.5 text-ink-400 group-hover:translate-x-0.5 transition-transform" />
           </a>

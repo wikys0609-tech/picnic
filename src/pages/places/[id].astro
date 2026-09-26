@@ -1,5 +1,5 @@
 ---
-import { getCollection } from 'astro:content';
+import { getCollection, render } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import WalkCard from '@/components/walk/WalkCard.astro';
 import Badge from '@/components/ui/Badge.astro';
@@ -9,7 +9,7 @@ import { Footprints, ArrowLeft, Lightbulb } from '@lucide/astro';
 export async function getStaticPaths() {
   const places = await getCollection('places');
   return places.map((place) => ({
-    params: { id: place.slug || place.id.replace(/\.md$/, '') },
+    params: { id: place.id },
     props: { place },
   }));
 }
@@ -27,7 +27,7 @@ const relatedWalks = allWalks.filter((walk) =>
 );
 relatedWalks.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 
-const { Content } = await place.render();
+const { Content } = await render(place);
 ---
 
 <BaseLayout title={name} description={`${sido} ${sigungu}의 ${type} - ${name} 산책 정보`}>

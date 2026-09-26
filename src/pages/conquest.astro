@@ -14,7 +14,8 @@ for (const p of places) {
   visitedMap.set(key, list);
 }
 
-// 수도권 83개 구·시·군 기준 통계
+// NOTE: TOTAL_REGIONS = 83은 현재 임시 하드코딩 상수이며,
+// Phase 6에서 public/geo/metropolitan-sigungu.json GeoJSON 데이터 기반으로 동적 계산되도록 교체됩니다.
 const TOTAL_REGIONS = 83;
 const visitedCount = visitedMap.size;
 const progressPercent = Math.round((visitedCount / TOTAL_REGIONS) * 100);
