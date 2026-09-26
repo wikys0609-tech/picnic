@@ -1,0 +1,236 @@
+---
+import { getCollection, getEntries } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { baseUrl } from '@/lib/utils/url';
+import { formatDateKorean, getYearMonth } from '@/lib/utils/date';
+import Badge from '@/components/ui/Badge.astro';
+import { BookOpen, MapPin, SlidersHorizontal } from '@lucide/astro';
+
+const allWalks = await getCollection('walks', ({ data }) => {
+  return import.meta.env.PROD ? !data.draft : true;
+});
+
+// 날짜 내림차순 정렬
+allWalks.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+
+// 모든 태그 목록 수집 및 개수 카운트
+const tagCounts = new Map<string, number>();
+for (const walk of allWalks) {
+  for (const tag of walk.data.tags || []) {
+    tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+  }
+}
+const sortedTags = Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1]);
+
+// 모든 장소 미리 해결
+const walksWithPlaces = await Promise.all(
+  allWalks.map(async (walk) => ({
+    walk,
+    places: await getEntries(walk.data.places),
+    yearMonth: getYearMonth(walk.data.date),
+  }))
+);
+
+// 연도 및 월별로 그룹화
+type MonthGroup = {
+  month: number;
+  items: typeof walksWithPlaces;
+};
+
+type YearGroup = {
+  year: number;
+  months: MonthGroup[];
+};
+
+const groupedWalks: YearGroup[] = [];
+
+for (const item of walksWithPlaces) {
+  const { year, month } = item.yearMonth;
+  let yearEntry = groupedWalks.find((g) => g.year === year);
+  if (!yearEntry) {
+    yearEntry = { year, months: [] };
+    groupedWalks.push(yearEntry);
+  }
+
+  let monthEntry = yearEntry.months.find((m) => m.month === month);
+  if (!monthEntry) {
+    monthEntry = { month, items: [] };
+    yearEntry.months.push(monthEntry);
+  }
+
+  monthEntry.items.push(item);
+}
+---
+
+<BaseLayout title="산책 기록 아카이브" description="연도 및 월별로 모아보는 모든 산책 기록">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+    <!-- 헤더 -->
+    <header class="mb-10">
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-paper-200/80 dark:bg-night-800 text-ink-600 dark:text-ink-400 text-xs font-medium mb-3">
+        <BookOpen class="w-3.5 h-3.5" />
+        <span>전체 아카이브</span>
+      </div>
+      <h1 class="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-ink-900 dark:text-paper-100">
+        걸어온 길의 타임라인
+      </h1>
+      <p class="mt-2 text-sm text-ink-500 dark:text-ink-400">
+        총 {allWalks.length}편의 산책 기록이 날짜순으로 정돈되어 있습니다.
+      </p>
+    </header>
+
+    <!-- 태그 필터 칩 영역 -->
+    {sortedTags.length > 0 && (
+      <div class="mb-12 p-5 rounded-2xl bg-paper-100/60 dark:bg-night-900 border border-paper-200 dark:border-night-800">
+        <div class="flex items-center gap-1.5 text-xs font-semibold text-ink-600 dark:text-ink-400 mb-3">
+          <SlidersHorizontal class="w-3.5 h-3.5" />
+          <span>태그 필터</span>
+        </div>
+        <div class="flex flex-wrap gap-1.5" id="tag-filter-list">
+          <button
+            type="button"
+            class="tag-filter-btn active px-3 py-1 rounded-full text-xs font-medium bg-terracotta-500 text-white transition-colors"
+            data-tag="all"
+          >
+            전체 ({allWalks.length})
+          </button>
+          {sortedTags.map(([tag, count]) => (
+            <button
+              type="button"
+              class="tag-filter-btn px-3 py-1 rounded-full text-xs font-medium bg-white dark:bg-night-800 border border-paper-300 dark:border-night-700 text-ink-700 dark:text-ink-300 hover:border-terracotta-400 transition-colors"
+              data-tag={tag}
+            >
+              #{tag} <span class="text-ink-400 dark:text-ink-500 text-[10px]">({count})</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <!-- 연도/월별 타임라인 -->
+    <div class="space-y-12" id="walks-timeline">
+      {groupedWalks.map((yearGroup) => (
+        <section class="year-section relative">
+          <!-- 연도 헤더 -->
+          <div class="sticky top-16 z-20 py-2 backdrop-blur-sm bg-paper-50/90 dark:bg-night-950/90 flex items-center gap-3 border-b border-paper-300 dark:border-night-700">
+            <span class="font-serif text-2xl font-bold text-ink-900 dark:text-paper-100">
+              {yearGroup.year}년
+            </span>
+            <div class="h-px flex-1 bg-paper-200 dark:border-night-800"></div>
+          </div>
+
+          <div class="mt-6 space-y-8 pl-2 sm:pl-4 border-l-2 border-paper-200 dark:border-night-800 ml-3 sm:ml-4">
+            {yearGroup.months.map((monthGroup) => (
+              <div class="month-block relative">
+                <!-- 월 마커 도트 -->
+                <div class="absolute -left-[19px] sm:-left-[27px] top-1.5 w-3.5 h-3.5 rounded-full bg-paper-50 dark:bg-night-950 border-2 border-terracotta-500"></div>
+
+                <h3 class="font-sans text-sm font-semibold text-terracotta-600 dark:text-terracotta-100 mb-3">
+                  {monthGroup.month}월
+                </h3>
+
+                <!-- 해당 월의 산책 리스트 -->
+                <div class="space-y-3">
+                  {monthGroup.items.map(({ walk, places }) => (
+                    <article
+                      class="walk-item p-4 rounded-xl bg-white dark:bg-night-900 border border-paper-200 dark:border-night-800 hover:border-terracotta-200 dark:hover:border-terracotta-700/50 transition-all shadow-sm"
+                      data-tags={JSON.stringify(walk.data.tags || [])}
+                    >
+                      <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 mb-1.5">
+                        <h4 class="font-serif text-base font-bold text-ink-900 dark:text-paper-100 hover:text-terracotta-600 dark:hover:text-terracotta-100 transition-colors">
+                          <a href={baseUrl(`/walks/${walk.slug}`)}>
+                            {walk.data.title}
+                          </a>
+                        </h4>
+                        <time datetime={walk.data.date} class="text-xs text-ink-400 shrink-0">
+                          {formatDateKorean(walk.data.date)}
+                        </time>
+                      </div>
+
+                      <div class="flex flex-wrap items-center gap-2 text-xs">
+                        {walk.data.mood && <Badge variant="accent">{walk.data.mood}</Badge>}
+                        {walk.data.weather && <Badge variant="default">{walk.data.weather}</Badge>}
+
+                        <!-- 장소들 -->
+                        <div class="flex items-center gap-1.5 text-forest-700 dark:text-forest-100 font-medium">
+                          <MapPin class="w-3.5 h-3.5 text-forest-500" />
+                          <span>{places.map((p) => p.data.name).join(', ')}</span>
+                        </div>
+
+                        <!-- 태그들 -->
+                        {walk.data.tags?.map((tag) => (
+                          <span class="text-ink-400 dark:text-ink-500 text-[11px]">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  function setupTagFilter() {
+    const filterButtons = document.querySelectorAll<HTMLButtonElement>('.tag-filter-btn');
+    const walkItems = document.querySelectorAll<HTMLElement>('.walk-item');
+    const monthBlocks = document.querySelectorAll<HTMLElement>('.month-block');
+    const yearSections = document.querySelectorAll<HTMLElement>('.year-section');
+
+    // URL query string (?tag=...) 읽기
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialTag = urlParams.get('tag') || 'all';
+
+    function applyFilter(selectedTag: string) {
+      filterButtons.forEach((btn) => {
+        const isSelected = btn.dataset.tag === selectedTag;
+        if (isSelected) {
+          btn.className = 'tag-filter-btn active px-3 py-1 rounded-full text-xs font-medium bg-terracotta-500 text-white transition-colors';
+        } else {
+          btn.className = 'tag-filter-btn px-3 py-1 rounded-full text-xs font-medium bg-white dark:bg-night-800 border border-paper-300 dark:border-night-700 text-ink-700 dark:text-ink-300 hover:border-terracotta-400 transition-colors';
+        }
+      });
+
+      walkItems.forEach((item) => {
+        const itemTags = JSON.parse(item.dataset.tags || '[]') as string[];
+        if (selectedTag === 'all' || itemTags.includes(selectedTag)) {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+
+      // 빈 월/연도 블록 숨김 처리
+      monthBlocks.forEach((block) => {
+        const visibleItems = block.querySelectorAll<HTMLElement>('.walk-item[style*="display: block"], .walk-item:not([style*="display: none"])');
+        block.style.display = visibleItems.length > 0 ? 'block' : 'none';
+      });
+
+      yearSections.forEach((section) => {
+        const visibleMonths = section.querySelectorAll<HTMLElement>('.month-block[style*="display: block"], .month-block:not([style*="display: none"])');
+        section.style.display = visibleMonths.length > 0 ? 'block' : 'none';
+      });
+    }
+
+    filterButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tag = btn.dataset.tag || 'all';
+        applyFilter(tag);
+        const newUrl = tag === 'all' ? window.location.pathname : `?tag=${encodeURIComponent(tag)}`;
+        window.history.replaceState({}, '', newUrl);
+      });
+    });
+
+    if (initialTag !== 'all') {
+      applyFilter(initialTag);
+    }
+  }
+
+  setupTagFilter();
+  document.addEventListener('astro:after-swap', setupTagFilter);
+</script>

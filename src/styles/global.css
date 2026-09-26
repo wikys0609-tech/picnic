@@ -1,0 +1,72 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-page: #FAF8F5;
+    --bg-card: #FFFFFF;
+    --text-main: #23201D;
+    --text-muted: #736C63;
+    --border-subtle: #EBE5DB;
+    --accent-warm: #9E472A;
+  }
+
+  .dark {
+    --bg-page: #151413;
+    --bg-card: #1F1D1A;
+    --text-main: #ECE7DE;
+    --text-muted: #9C958A;
+    --border-subtle: #2C2925;
+    --accent-warm: #D96F4E;
+  }
+
+  html {
+    font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    scroll-behavior: smooth;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  body {
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    transition: background-color 0.25s ease, color 0.25s ease;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  ::selection {
+    background-color: #F0D5CA;
+    color: #4A1E11;
+  }
+
+  .dark ::selection {
+    background-color: #59291B;
+    color: #FDE8E1;
+  }
+}
+
+/* 산문집 감성의 편안한 읽기 전용 Prose 스타일 보강 */
+.prose-essay {
+  font-size: 1.0625rem;
+  line-height: 1.85;
+  letter-spacing: -0.01em;
+}
+
+.prose-essay p {
+  margin-bottom: 1.6em;
+}
+
+.prose-essay p:first-of-type::first-letter {
+  float: left;
+  font-size: 2.75em;
+  line-height: 0.9;
+  margin-right: 0.15em;
+  padding-top: 0.05em;
+  color: var(--accent-warm);
+  font-family: serif;
+}

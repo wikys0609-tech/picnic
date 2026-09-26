@@ -1,0 +1,140 @@
+---
+import { baseUrl } from '@/lib/utils/url';
+import { ZoomIn, X } from '@lucide/astro';
+
+interface Props {
+  photoFolder?: string;
+  cover?: string;
+  captions?: Record<string, string>;
+  title: string;
+}
+
+const {
+  photoFolder,
+  cover = 'cover.webp',
+  captions = {},
+  title,
+} = Astro.props;
+
+// cover 사진 및 captions에 등록된 사진 목록
+const photoList = cover ? [cover, ...Object.keys(captions).filter((k) => k !== cover)] : Object.keys(captions);
+---
+
+{photoFolder && photoList.length > 0 ? (
+  <div class="my-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {photoList.map((filename) => {
+        const fullUrl = baseUrl(`/photos/${photoFolder}/${filename}`);
+        const caption = captions[filename] || title;
+        return (
+          <figure class="group relative overflow-hidden rounded-xl bg-paper-200 dark:bg-night-800 border border-paper-300 dark:border-night-700">
+            <button
+              type="button"
+              class="w-full text-left focus:outline-none focus:ring-2 focus:ring-terracotta-500/50 gallery-img-btn"
+              data-img-src={fullUrl}
+              data-caption={caption}
+            >
+              <div class="aspect-[4/3] w-full overflow-hidden">
+                <img
+                  src={fullUrl}
+                  alt={caption}
+                  loading="lazy"
+                  decoding="async"
+                  class="gallery-thumbnail h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              </div>
+              <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                <ZoomIn class="w-6 h-6 drop-shadow" />
+              </div>
+            </button>
+            {captions[filename] && (
+              <figcaption class="p-3 text-xs text-ink-600 dark:text-ink-400 font-sans text-center bg-white/70 dark:bg-night-900/70 border-t border-paper-200 dark:border-night-800">
+                {captions[filename]}
+              </figcaption>
+            )}
+          </figure>
+        );
+      })}
+    </div>
+
+    <!-- 라이트박스 모달 -->
+    <div
+      id="lightbox-modal"
+      class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-sm flex-col items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <button
+        id="lightbox-close"
+        class="absolute top-4 right-4 p-2 text-white/80 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+        aria-label="닫기"
+      >
+        <X class="w-6 h-6" />
+      </button>
+
+      <div class="max-w-4xl max-h-[85vh] flex flex-col items-center">
+        <img
+          id="lightbox-img"
+          src=""
+          alt=""
+          class="max-h-[75vh] w-auto max-w-full rounded-lg object-contain shadow-2xl"
+        />
+        <p id="lightbox-caption" class="mt-4 text-sm text-paper-200 text-center font-sans max-w-lg"></p>
+      </div>
+    </div>
+  </div>
+) : null}
+
+<script>
+  function setupLightbox() {
+    const modal = document.getElementById('lightbox-modal');
+    const closeBtn = document.getElementById('lightbox-close');
+    const modalImg = document.getElementById('lightbox-img') as HTMLImageElement | null;
+    const modalCaption = document.getElementById('lightbox-caption');
+    const buttons = document.querySelectorAll('.gallery-img-btn');
+
+    if (!modal || !closeBtn || !modalImg || !modalCaption) return;
+
+    document.querySelectorAll<HTMLImageElement>('.gallery-thumbnail').forEach((img) => {
+      img.addEventListener('error', () => {
+        const parent = img.parentElement;
+        if (parent) {
+          parent.innerHTML = '<div class="flex h-full items-center justify-center p-4 text-xs text-ink-400 font-sans">📷 사진 준비 중</div>';
+        }
+      });
+    });
+
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const src = btn.getAttribute('data-img-src') || '';
+        const cap = btn.getAttribute('data-caption') || '';
+        modalImg.src = src;
+        modalCaption.textContent = cap;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+      });
+    });
+
+    function closeModal() {
+      modal?.classList.remove('flex');
+      modal?.classList.add('hidden');
+      document.body.style.overflow = '';
+      if (modalImg) modalImg.src = '';
+    }
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        closeModal();
+      }
+    });
+  }
+
+  setupLightbox();
+  document.addEventListener('astro:after-swap', setupLightbox);
+</script>

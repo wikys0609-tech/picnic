@@ -1,0 +1,26 @@
+---
+import { Footprints } from '@lucide/astro';
+
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="mt-auto border-t border-paper-200 dark:border-night-800 bg-paper-100/50 dark:bg-night-900/40 py-10 transition-colors">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-500 dark:text-ink-400">
+    <div class="flex items-center gap-2">
+      <Footprints class="w-4 h-4 text-terracotta-500" />
+      <span>발걸음이 닿은 서울·경기·인천의 골목과 공원의 기억들.</span>
+    </div>
+
+    <div class="flex items-center gap-4">
+      <a
+        href="https://github.com/wikys0609-tech/picnic"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="hover:text-ink-900 dark:hover:text-paper-100 underline underline-offset-2 transition-colors"
+      >
+        GitHub 저장소
+      </a>
+      <span>&copy; {currentYear} 소풍 (Picnic).</span>
+    </div>
+  </div>
+</footer>

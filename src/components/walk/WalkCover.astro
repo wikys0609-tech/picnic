@@ -1,0 +1,68 @@
+---
+import { baseUrl } from '@/lib/utils/url';
+import { Image as ImageIcon } from '@lucide/astro';
+
+interface Props {
+  photoFolder?: string;
+  cover?: string;
+  title: string;
+  class?: string;
+  aspect?: 'video' | 'wide' | 'square';
+}
+
+const {
+  photoFolder,
+  cover = 'cover.webp',
+  title,
+  class: className = '',
+  aspect = 'video',
+} = Astro.props;
+
+// 실제 사진 경로
+const photoSrc = photoFolder ? baseUrl(`/photos/${photoFolder}/${cover}`) : null;
+
+const aspectClasses = {
+  video: 'aspect-[16/10]',
+  wide: 'aspect-[21/9]',
+  square: 'aspect-square',
+};
+
+// 장소/기록별 고유한 부드러운 그라디언트 색상 시드 생성
+const gradients = [
+  'from-amber-100 via-orange-50 to-stone-100 dark:from-stone-900 dark:via-amber-950/30 dark:to-stone-900',
+  'from-emerald-100 via-teal-50 to-stone-100 dark:from-stone-900 dark:via-emerald-950/30 dark:to-stone-900',
+  'from-sky-100 via-indigo-50 to-stone-100 dark:from-stone-900 dark:via-sky-950/30 dark:to-stone-900',
+  'from-rose-100 via-stone-50 to-amber-50 dark:from-stone-900 dark:via-rose-950/30 dark:to-stone-900',
+];
+
+const charCodeSum = title.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+const gradientClass = gradients[charCodeSum % gradients.length];
+---
+
+<div class={`relative overflow-hidden rounded-xl bg-gradient-to-br ${gradientClass} ${aspectClasses[aspect]} ${className} group`}>
+  {photoSrc ? (
+    <img
+      src={photoSrc}
+      alt={title}
+      loading="lazy"
+      decoding="async"
+      class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+    />
+  ) : null}
+
+  <!-- 사진이 없거나 로딩 실패 시 노출되는 감성 플레이스홀더 -->
+  <div
+    class={`h-full w-full flex flex-col items-center justify-center p-6 text-center transition-transform duration-500 group-hover:scale-105 ${photoSrc ? 'hidden' : 'flex'}`}
+  >
+    <div class="w-12 h-12 rounded-full bg-paper-200/80 dark:bg-night-800/80 backdrop-blur-sm flex items-center justify-center text-ink-500 dark:text-ink-400 mb-3 shadow-inner">
+      <ImageIcon class="w-6 h-6 opacity-60" />
+    </div>
+    <span class="font-serif text-sm font-medium text-ink-700 dark:text-paper-300 opacity-80 line-clamp-1 max-w-[80%]">
+      {title}
+    </span>
+    <span class="text-[11px] text-ink-400 dark:text-ink-500 mt-1">
+      기록의 풍경
+    </span>
+  </div>
+</div>

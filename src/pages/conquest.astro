@@ -1,0 +1,112 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { Trophy, CircleCheck, MapPin } from '@lucide/astro';
+
+const places = await getCollection('places');
+
+// 방문한 고유 시군구 추출
+const visitedMap = new Map<string, string[]>(); // key: "sido sigungu", val: place names
+for (const p of places) {
+  const key = `${p.data.sido} ${p.data.sigungu}`;
+  const list = visitedMap.get(key) || [];
+  list.push(p.data.name);
+  visitedMap.set(key, list);
+}
+
+// 수도권 83개 구·시·군 기준 통계
+const TOTAL_REGIONS = 83;
+const visitedCount = visitedMap.size;
+const progressPercent = Math.round((visitedCount / TOTAL_REGIONS) * 100);
+
+// 시·도별 방문 수
+let seoulVisited = 0;
+let gyeonggiVisited = 0;
+let incheonVisited = 0;
+
+for (const key of visitedMap.keys()) {
+  if (key.startsWith('서울특별시')) seoulVisited++;
+  else if (key.startsWith('경기도')) gyeonggiVisited++;
+  else if (key.startsWith('인천광역시')) incheonVisited++;
+}
+---
+
+<BaseLayout title="수도권 산책 정복 지도" description="수도권 83개 구·시·군 발걸음 정복 현황">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+    <header class="mb-10">
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-night-800 text-amber-700 dark:text-amber-100 text-xs font-medium mb-3 border border-amber-100 dark:border-amber-700/50">
+        <Trophy class="w-3.5 h-3.5 text-amber-500" />
+        <span>수도권 83개 구역 정복 여정</span>
+      </div>
+      <h1 class="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-ink-900 dark:text-paper-100">
+        발걸음으로 채워가는 지도
+      </h1>
+      <p class="mt-2 text-sm text-ink-500 dark:text-ink-400">
+        서울 25개 자치구, 경기 47개 구·시·군(일반구 세분화), 인천 11개 자치구·군(2026 개편)
+      </p>
+    </header>
+
+    <!-- 종합 정복률 대시보드 -->
+    <div class="p-6 sm:p-8 rounded-2xl bg-white dark:bg-night-900 border border-paper-200 dark:border-night-800 mb-8 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <span class="text-xs text-ink-400 font-medium">전체 정복률</span>
+          <div class="flex items-baseline gap-2 mt-1">
+            <span class="font-serif text-4xl font-bold text-terracotta-600 dark:text-terracotta-100">
+              {progressPercent}%
+            </span>
+            <span class="text-sm text-ink-500">
+              ({visitedCount} / {TOTAL_REGIONS} 구역)
+            </span>
+          </div>
+        </div>
+
+        <!-- 시도별 미니 스탯 -->
+        <div class="flex items-center gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-paper-100 dark:bg-night-800">
+            <div class="text-ink-400 mb-1">서울 (25)</div>
+            <div class="font-bold text-ink-800 dark:text-paper-200">{seoulVisited}개</div>
+          </div>
+          <div class="p-3 rounded-xl bg-paper-100 dark:bg-night-800">
+            <div class="text-ink-400 mb-1">경기 (47)</div>
+            <div class="font-bold text-ink-800 dark:text-paper-200">{gyeonggiVisited}개</div>
+          </div>
+          <div class="p-3 rounded-xl bg-paper-100 dark:bg-night-800">
+            <div class="text-ink-400 mb-1">인천 (11)</div>
+            <div class="font-bold text-ink-800 dark:text-paper-200">{incheonVisited}개</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 프로그레스 바 -->
+      <div class="w-full bg-paper-200 dark:bg-night-800 h-3 rounded-full overflow-hidden">
+        <div
+          class="bg-terracotta-500 h-full rounded-full transition-all duration-700"
+          style={`width: ${Math.max(progressPercent, 4)}%`}
+        ></div>
+      </div>
+    </div>
+
+    <!-- 정복한 구역 목록 -->
+    <div class="p-6 rounded-2xl bg-paper-100/60 dark:bg-night-900 border border-paper-200 dark:border-night-800">
+      <h3 class="font-serif text-lg font-bold text-ink-900 dark:text-paper-100 mb-4 flex items-center gap-2">
+        <CircleCheck class="w-5 h-5 text-forest-500" />
+        지금까지 정복한 구역들
+      </h3>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        {Array.from(visitedMap.entries()).map(([region, placeNames]) => (
+          <div class="p-3.5 rounded-xl bg-white dark:bg-night-800 border border-paper-200 dark:border-night-700 shadow-xs flex flex-col justify-between">
+            <div class="font-semibold text-sm text-ink-900 dark:text-paper-100 flex items-center gap-1.5">
+              <MapPin class="w-3.5 h-3.5 text-terracotta-500" />
+              <span>{region}</span>
+            </div>
+            <div class="mt-2 text-xs text-forest-700 dark:text-forest-100 bg-forest-50 dark:bg-night-900/60 px-2 py-1 rounded">
+              방문: {placeNames.join(', ')}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</BaseLayout>

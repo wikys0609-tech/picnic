@@ -1,0 +1,30 @@
+---
+interface Props {
+  variant?: 'default' | 'accent' | 'forest' | 'muted' | 'outline';
+  size?: 'sm' | 'md';
+  class?: string;
+}
+
+const {
+  variant = 'default',
+  size = 'sm',
+  class: className = '',
+} = Astro.props;
+
+const variantClasses = {
+  default: 'bg-paper-200 text-ink-700 dark:bg-night-800 dark:text-paper-200',
+  accent: 'bg-terracotta-50 text-terracotta-700 dark:bg-night-800 dark:text-terracotta-100 border border-terracotta-100 dark:border-terracotta-700/50',
+  forest: 'bg-forest-50 text-forest-700 dark:bg-night-800 dark:text-forest-100 border border-forest-100 dark:border-forest-700/50',
+  muted: 'bg-paper-100 text-ink-500 dark:bg-night-900 dark:text-ink-400',
+  outline: 'bg-transparent border border-paper-300 dark:border-night-700 text-ink-600 dark:text-paper-300',
+};
+
+const sizeClasses = {
+  sm: 'text-xs px-2.5 py-0.5 rounded-full',
+  md: 'text-sm px-3 py-1 rounded-full',
+};
+---
+
+<span class={`inline-flex items-center gap-1 font-medium transition-colors ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}>
+  <slot />
+</span>

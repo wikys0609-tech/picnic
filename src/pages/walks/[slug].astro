@@ -1,0 +1,232 @@
+---
+import { getCollection, getEntries } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import WalkCover from '@/components/walk/WalkCover.astro';
+import PhotoGallery from '@/components/walk/PhotoGallery.astro';
+import Badge from '@/components/ui/Badge.astro';
+import { baseUrl } from '@/lib/utils/url';
+import { formatDateKorean } from '@/lib/utils/date';
+import {
+  Calendar,
+  Clock,
+  CloudSun,
+  Users,
+  MapPin,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft,
+  Tag,
+} from '@lucide/astro';
+
+export async function getStaticPaths() {
+  const walks = await getCollection('walks', ({ data }) => {
+    return import.meta.env.PROD ? !data.draft : true;
+  });
+
+  // 날짜 역순(최신순) 정렬
+  walks.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+
+  return walks.map((walk, index) => {
+    // walks가 내림차순 정렬되어 있으므로:
+    // 이전 글(더 과거)은 index + 1
+    // 다음 글(더 최신)은 index - 1
+    const prevWalk = index + 1 < walks.length ? walks[index + 1] : null;
+    const nextWalk = index - 1 >= 0 ? walks[index - 1] : null;
+
+    return {
+      params: { slug: walk.slug },
+      props: { walk, prevWalk, nextWalk },
+    };
+  });
+}
+
+const { walk, prevWalk, nextWalk } = Astro.props;
+const {
+  title,
+  date,
+  timeOfDay,
+  weather,
+  companions,
+  mood,
+  places,
+  photoFolder,
+  cover,
+  captions,
+  tags,
+} = walk.data;
+
+const resolvedPlaces = await getEntries(places);
+const { Content } = await walk.render();
+---
+
+<BaseLayout title={title} description={`${formatDateKorean(date)} 산책 기록: ${title}`}>
+  <article class="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+    <!-- 상단 뒤로가기 -->
+    <div class="mb-8">
+      <a
+        href={baseUrl('/archive')}
+        class="inline-flex items-center gap-1.5 text-xs font-medium text-ink-500 hover:text-terracotta-600 dark:text-ink-400 dark:hover:text-terracotta-100 transition-colors"
+      >
+        <ArrowLeft class="w-3.5 h-3.5" />
+        모든 산책 기록으로 돌아가기
+      </a>
+    </div>
+
+    <!-- 헤더 영역 -->
+    <header class="mb-10 text-center sm:text-left">
+      <!-- 메타 칩 (날짜, 기분, 날씨, 시간대, 동행) -->
+      <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-4 text-xs text-ink-600 dark:text-ink-400">
+        <span class="inline-flex items-center gap-1 font-medium">
+          <Calendar class="w-3.5 h-3.5 text-terracotta-500" />
+          <time datetime={date}>{formatDateKorean(date)}</time>
+        </span>
+
+        {timeOfDay && (
+          <span class="inline-flex items-center gap-1 text-ink-500">
+            <Clock class="w-3.5 h-3.5" />
+            {timeOfDay}
+          </span>
+        )}
+
+        {weather && (
+          <span class="inline-flex items-center gap-1 text-ink-500">
+            <CloudSun class="w-3.5 h-3.5" />
+            {weather}
+          </span>
+        )}
+
+        {companions && (
+          <span class="inline-flex items-center gap-1 text-ink-500">
+            <Users class="w-3.5 h-3.5" />
+            {companions}
+          </span>
+        )}
+
+        {mood && <Badge variant="accent">{mood}</Badge>}
+      </div>
+
+      <!-- 제목 -->
+      <h1 class="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-ink-900 dark:text-paper-100 leading-snug sm:leading-tight mb-6">
+        {title}
+      </h1>
+
+      <!-- 방문한 장소 태그 -->
+      <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-2 border-t border-paper-200 dark:border-night-800">
+        <span class="text-xs text-ink-400 dark:text-ink-500 flex items-center gap-1">
+          <MapPin class="w-3.5 h-3.5" />
+          들른 곳:
+        </span>
+        {resolvedPlaces.map((place) => (
+          <a
+            href={baseUrl(`/places/${place.slug || place.id.replace(/\.md$/, '')}`)}
+            class="inline-flex items-center gap-1 text-xs font-medium text-forest-700 dark:text-forest-100 bg-forest-50 dark:bg-night-800 px-2.5 py-1 rounded-md hover:bg-forest-100 dark:hover:bg-night-700 transition-colors"
+          >
+            <span>{place.data.name}</span>
+            <span class="text-[10px] opacity-70">({place.data.sigungu})</span>
+          </a>
+        ))}
+      </div>
+    </header>
+
+    <!-- 대표 이미지 커버 -->
+    <div class="mb-10">
+      <WalkCover photoFolder={photoFolder} cover={cover} title={title} aspect="wide" />
+    </div>
+
+    <!-- 본문 에세이 (산문집 감성 타이포그래피) -->
+    <div class="prose prose-essay max-w-none text-ink-800 dark:text-paper-200 font-sans">
+      <Content />
+    </div>
+
+    <!-- 사진 갤러리 (캡션 및 라이트박스 지원) -->
+    <PhotoGallery photoFolder={photoFolder} cover={cover} captions={captions} title={title} />
+
+    <!-- 미니맵 플레이스홀더 (Phase 2에서 카카오맵과 연결) -->
+    <div class="my-10 p-5 rounded-2xl bg-paper-100 dark:bg-night-900 border border-paper-200 dark:border-night-800">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2 text-sm font-semibold text-ink-800 dark:text-paper-200">
+          <MapPin class="w-4 h-4 text-terracotta-500" />
+          <span>오늘의 산책 코스</span>
+        </div>
+        <span class="text-xs text-ink-400">
+          {resolvedPlaces.length}곳 방문
+        </span>
+      </div>
+      <div class="space-y-2">
+        {resolvedPlaces.map((place, idx) => (
+          <div class="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg bg-white dark:bg-night-800 border border-paper-200/60 dark:border-night-700/60">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-terracotta-100 dark:bg-terracotta-900/50 text-terracotta-600 dark:text-terracotta-100 text-[11px] font-bold flex items-center justify-center">
+                {idx + 1}
+              </span>
+              <span class="font-medium text-ink-800 dark:text-paper-200">{place.data.name}</span>
+              <span class="text-ink-400">({place.data.sido} {place.data.sigungu})</span>
+            </div>
+            <a
+              href={baseUrl(`/places/${place.slug || place.id.replace(/\.md$/, '')}`)}
+              class="text-terracotta-600 dark:text-terracotta-100 hover:underline"
+            >
+              장소 정보 &rarr;
+            </a>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- 태그 목록 -->
+    {tags && tags.length > 0 && (
+      <div class="mt-8 pt-6 border-t border-paper-200 dark:border-night-800 flex flex-wrap items-center gap-2">
+        <Tag class="w-3.5 h-3.5 text-ink-400" />
+        {tags.map((tag) => (
+          <a
+            href={baseUrl(`/archive?tag=${encodeURIComponent(tag)}`)}
+            class="text-xs text-ink-600 dark:text-ink-400 hover:text-terracotta-600 dark:hover:text-terracotta-100 bg-paper-200/60 dark:bg-night-800 px-2.5 py-1 rounded-full transition-colors"
+          >
+            #{tag}
+          </a>
+        ))}
+      </div>
+    )}
+
+    <!-- 이전 글 / 다음 글 네비게이션 -->
+    <nav class="mt-12 pt-8 border-t border-paper-200 dark:border-night-800 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {prevWalk ? (
+        <a
+          href={baseUrl(`/walks/${prevWalk.slug}`)}
+          class="group flex flex-col p-4 rounded-xl border border-paper-200 dark:border-night-800 hover:border-terracotta-200 dark:hover:border-terracotta-700/50 bg-white dark:bg-night-900/40 transition-all text-left"
+        >
+          <span class="inline-flex items-center text-xs text-ink-400 group-hover:text-terracotta-600 mb-1">
+            <ChevronLeft class="w-3.5 h-3.5 mr-0.5" />
+            이전 기록
+          </span>
+          <span class="font-serif text-sm font-bold text-ink-800 dark:text-paper-200 group-hover:text-terracotta-600 dark:group-hover:text-terracotta-100 line-clamp-1">
+            {prevWalk.data.title}
+          </span>
+          <span class="text-[11px] text-ink-400 mt-1">
+            {formatDateKorean(prevWalk.data.date)}
+          </span>
+        </a>
+      ) : (
+        <div class="hidden sm:block"></div>
+      )}
+
+      {nextWalk && (
+        <a
+          href={baseUrl(`/walks/${nextWalk.slug}`)}
+          class="group flex flex-col p-4 rounded-xl border border-paper-200 dark:border-night-800 hover:border-terracotta-200 dark:hover:border-terracotta-700/50 bg-white dark:bg-night-900/40 transition-all text-right sm:col-start-2"
+        >
+          <span class="inline-flex items-center justify-end text-xs text-ink-400 group-hover:text-terracotta-600 mb-1">
+            다음 기록
+            <ChevronRight class="w-3.5 h-3.5 ml-0.5" />
+          </span>
+          <span class="font-serif text-sm font-bold text-ink-800 dark:text-paper-200 group-hover:text-terracotta-600 dark:group-hover:text-terracotta-100 line-clamp-1">
+            {nextWalk.data.title}
+          </span>
+          <span class="text-[11px] text-ink-400 mt-1">
+            {formatDateKorean(nextWalk.data.date)}
+          </span>
+        </a>
+      )}
+    </nav>
+  </article>
+</BaseLayout>
