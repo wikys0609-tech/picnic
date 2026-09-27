@@ -1,0 +1,193 @@
+---
+import type { MapPlace } from '@/lib/map/types';
+import { baseUrl } from '@/lib/utils/url';
+import { Search, CircleAlert, RefreshCw } from '@lucide/astro';
+
+interface Props {
+  places: MapPlace[];
+}
+
+const { places } = Astro.props;
+const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
+---
+
+<div class="space-y-4">
+  <!-- 지도 상단 검색 및 지역 필터 바 -->
+  <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl bg-paper-100/80 dark:bg-night-900 border border-paper-200 dark:border-night-800">
+    <div class="flex flex-wrap items-center gap-1.5" id="region-filter-buttons">
+      <button
+        type="button"
+        class="region-btn active px-3 py-1.5 rounded-xl text-xs font-semibold bg-terracotta-500 text-white transition-colors"
+        data-region="all"
+      >
+        전체 ({places.filter((p) => !p.hidden).length})
+      </button>
+      <button
+        type="button"
+        class="region-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-night-800 border border-paper-300 dark:border-night-700 text-ink-700 dark:text-ink-300 hover:border-terracotta-400 transition-colors"
+        data-region="서울특별시"
+      >
+        서울
+      </button>
+      <button
+        type="button"
+        class="region-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-night-800 border border-paper-300 dark:border-night-700 text-ink-700 dark:text-ink-300 hover:border-terracotta-400 transition-colors"
+        data-region="경기도"
+      >
+        경기
+      </button>
+      <button
+        type="button"
+        class="region-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-night-800 border border-paper-300 dark:border-night-700 text-ink-700 dark:text-ink-300 hover:border-terracotta-400 transition-colors"
+        data-region="인천광역시"
+      >
+        인천
+      </button>
+    </div>
+
+    <div class="relative w-full sm:w-64">
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400" />
+      <input
+        type="text"
+        id="map-search-input"
+        placeholder="장소명, 시·군·구 검색..."
+        class="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white dark:bg-night-800 border border-paper-300 dark:border-night-700 text-ink-900 dark:text-paper-100 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-terracotta-500/30"
+      />
+    </div>
+  </div>
+
+  <!-- 지도 캔버스 컨테이너 -->
+  <div class="relative w-full h-[540px] sm:h-[620px] rounded-2xl overflow-hidden border border-paper-200 dark:border-night-800 shadow-sm bg-paper-100 dark:bg-night-900">
+    <div id="kakao-full-map" class="w-full h-full"></div>
+
+    <!-- 로딩 스피너 오버레이 -->
+    <div
+      id="map-loading"
+      class="absolute inset-0 bg-paper-50/80 dark:bg-night-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3 z-30 transition-opacity"
+    >
+      <div class="w-8 h-8 rounded-full border-2 border-terracotta-500 border-t-transparent animate-spin"></div>
+      <p class="text-xs font-medium text-ink-600 dark:text-ink-400">카카오맵을 불러오는 중입니다...</p>
+    </div>
+
+    <!-- 오류 안내 오버레이 -->
+    <div
+      id="map-error"
+      class="hidden absolute inset-0 bg-paper-50 dark:bg-night-950 p-6 flex-col items-center justify-center text-center gap-3 z-30"
+    >
+      <div class="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center">
+        <CircleAlert class="w-6 h-6" />
+      </div>
+      <h4 class="font-serif text-base font-bold text-ink-900 dark:text-paper-100">
+        지도를 표시할 수 없습니다
+      </h4>
+      <p id="map-error-msg" class="text-xs text-ink-500 dark:text-ink-400 max-w-md leading-relaxed"></p>
+      <button
+        type="button"
+        id="map-retry-btn"
+        class="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-terracotta-500 text-white text-xs font-semibold hover:bg-terracotta-600 transition-colors"
+      >
+        <RefreshCw class="w-3.5 h-3.5" />
+        다시 시도
+      </button>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ places, baseUrlPrefix }}>
+  import { KakaoMapAdapter } from '@/lib/map/kakao-adapter';
+
+  let adapter = null;
+
+  async function initFullMap() {
+    const container = document.getElementById('kakao-full-map');
+    const loadingEl = document.getElementById('map-loading');
+    const errorEl = document.getElementById('map-error');
+    const errorMsgEl = document.getElementById('map-error-msg');
+    const retryBtn = document.getElementById('map-retry-btn');
+
+    if (!container) return;
+
+    try {
+      loadingEl?.classList.remove('hidden');
+      errorEl?.classList.add('hidden');
+
+      adapter = new KakaoMapAdapter();
+      await adapter.init(container, { level: 8 });
+      adapter.addPlaceMarkers(places, undefined, baseUrlPrefix);
+
+      loadingEl?.classList.add('hidden');
+    } catch (err) {
+      console.error('카카오맵 초기화 실패:', err);
+      loadingEl?.classList.add('hidden');
+      if (errorEl && errorMsgEl) {
+        errorEl.classList.remove('hidden');
+        errorEl.classList.add('flex');
+        errorMsgEl.textContent = err instanceof Error ? err.message : '카카오맵 SDK 로딩 중 오류가 발생했습니다.';
+      }
+    }
+
+    retryBtn?.addEventListener('click', () => {
+      initFullMap();
+    });
+
+    setupFilters();
+  }
+
+  function setupFilters() {
+    const regionButtons = document.querySelectorAll('.region-btn');
+    const searchInput = document.getElementById('map-search-input');
+
+    let selectedRegion = 'all';
+    let searchQuery = '';
+
+    function filterAndRender() {
+      if (!adapter) return;
+
+      const filtered = places.filter((place) => {
+        const matchesRegion = selectedRegion === 'all' || place.sido === selectedRegion;
+        const matchesSearch =
+          searchQuery === '' ||
+          place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          place.sigungu.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesRegion && matchesSearch;
+      });
+
+      adapter.destroy();
+      const container = document.getElementById('kakao-full-map');
+      if (container) {
+        adapter.init(container, { level: 8 }).then(() => {
+          adapter.addPlaceMarkers(filtered, undefined, baseUrlPrefix);
+        });
+      }
+    }
+
+    regionButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedRegion = btn.dataset.region || 'all';
+
+        regionButtons.forEach((b) => {
+          if (b === btn) {
+            b.className = 'region-btn active px-3 py-1.5 rounded-xl text-xs font-semibold bg-terracotta-500 text-white transition-colors';
+          } else {
+            b.className = 'region-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-night-800 border border-paper-300 dark:border-night-700 text-ink-700 dark:text-ink-300 hover:border-terracotta-400 transition-colors';
+          }
+        });
+
+        filterAndRender();
+      });
+    });
+
+    searchInput?.addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim();
+      filterAndRender();
+    });
+  }
+
+  // 초기 로드 및 Astro 뷰 트랜지션 지원
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFullMap);
+  } else {
+    initFullMap();
+  }
+  document.addEventListener('astro:after-swap', initFullMap);
+</script>

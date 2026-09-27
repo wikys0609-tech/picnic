@@ -1,78 +1,107 @@
 ---
 import { getCollection } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { baseUrl } from '@/lib/utils/url';
+import MapView from '@/components/map/MapView.astro';
 import Badge from '@/components/ui/Badge.astro';
-import { Map, Sparkles } from '@lucide/astro';
+import { baseUrl } from '@/lib/utils/url';
+import type { MapPlace } from '@/lib/map/types';
+import { Map, MapPin } from '@lucide/astro';
 
 const places = await getCollection('places');
+const allWalks = await getCollection('walks', ({ data }) => {
+  return import.meta.env.PROD ? !data.draft : true;
+});
+
+// 지도용 장소 데이터 및 방문 산책 기록 매핑
+const mapPlaces: MapPlace[] = places.map((place) => {
+  const relatedWalks = allWalks.filter((walk) =>
+    walk.data.places.some((p) => p.id === place.id)
+  );
+
+  return {
+    id: place.id,
+    name: place.data.name,
+    lat: place.data.lat,
+    lng: place.data.lng,
+    sido: place.data.sido,
+    sigungu: place.data.sigungu,
+    type: place.data.type,
+    facilities: place.data.facilities,
+    tips: place.data.tips,
+    hidden: place.data.hidden,
+    walks: relatedWalks.map((w) => ({
+      id: w.id,
+      title: w.data.title,
+      date: w.data.date,
+    })),
+  };
+});
 ---
 
 <BaseLayout title="산책 장소 지도" description="수도권 곳곳에 담아둔 공원과 골목">
   <div class="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-    <header class="mb-10">
+    <header class="mb-8">
       <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-forest-50 dark:bg-night-800 text-forest-700 dark:text-forest-100 text-xs font-medium mb-3 border border-forest-100 dark:border-forest-700/50">
         <Map class="w-3.5 h-3.5 text-forest-500" />
-        <span>장소 아카이브</span>
+        <span>인터랙티브 장소 지도</span>
       </div>
       <h1 class="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-ink-900 dark:text-paper-100">
         발걸음이 닿은 장소들
       </h1>
       <p class="mt-2 text-sm text-ink-500 dark:text-ink-400">
-        현재 총 {places.length}곳의 장소가 등록되어 있습니다.
+        마커를 클릭하면 장소 정보와 그곳을 다녀온 산책 일기들을 볼 수 있습니다. (총 {places.length}곳)
       </p>
     </header>
 
-    <!-- Phase 2 연동 준비 안내 카드 -->
-    <div class="mb-10 p-6 rounded-2xl bg-paper-100 dark:bg-night-900 border border-paper-200 dark:border-night-800 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div>
-        <div class="inline-flex items-center gap-1 text-xs font-semibold text-terracotta-600 dark:text-terracotta-100 mb-1">
-          <Sparkles class="w-3.5 h-3.5" />
-          <span>Phase 2 카카오맵 연동 예정</span>
-        </div>
-        <h3 class="font-serif text-base font-bold text-ink-800 dark:text-paper-200">
-          인터랙티브 카카오맵이 곧 이곳에 펼쳐집니다
-        </h3>
-        <p class="text-xs text-ink-500 mt-1">
-          카카오맵 SDK를 통해 모든 장소의 마커와 해당 장소 방문 산책 기록 팝업이 연동됩니다.
-        </p>
-      </div>
+    <!-- 카카오맵 인터랙티브 뷰 -->
+    <div class="mb-14">
+      <MapView places={mapPlaces} />
     </div>
 
-    <!-- 등록된 장소 카드 그리드 -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-      {places.map((place) => (
-        <article class="p-5 rounded-2xl bg-white dark:bg-night-900 border border-paper-200 dark:border-night-800 hover:border-terracotta-200 dark:hover:border-terracotta-700/50 shadow-sm transition-all flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between text-xs text-ink-400 mb-2">
-              <span class="font-medium text-forest-700 dark:text-forest-100 bg-forest-50 dark:bg-night-800 px-2 py-0.5 rounded">
-                {place.data.type}
-              </span>
-              <span>{place.data.sido} {place.data.sigungu}</span>
+    <!-- 등록된 장소 카드 목록 -->
+    <div>
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="font-serif text-xl font-bold text-ink-900 dark:text-paper-100 flex items-center gap-2">
+          <MapPin class="w-5 h-5 text-terracotta-500" />
+          장소 목록 색인
+        </h2>
+        <span class="text-xs text-ink-400">가나다순 정렬</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {places.map((place) => (
+          <article class="p-5 rounded-2xl bg-white dark:bg-night-900 border border-paper-200 dark:border-night-800 hover:border-terracotta-200 dark:hover:border-terracotta-700/50 shadow-sm transition-all flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between text-xs text-ink-400 mb-2">
+                <span class="font-medium text-forest-700 dark:text-forest-100 bg-forest-50 dark:bg-night-800 px-2 py-0.5 rounded">
+                  {place.data.type}
+                </span>
+                <span>{place.data.sido} {place.data.sigungu}</span>
+              </div>
+
+              <h3 class="font-serif text-lg font-bold text-ink-900 dark:text-paper-100 mb-2">
+                <a href={baseUrl(`/places/${place.id}`)} class="hover:text-terracotta-600 dark:hover:text-terracotta-100 transition-colors">
+                  {place.data.name}
+                </a>
+              </h3>
+
+              {place.data.tips && (
+                <p class="text-xs text-ink-600 dark:text-ink-400 leading-relaxed mb-4 line-clamp-2">
+                  💡 {place.data.tips}
+                </p>
+              )}
             </div>
 
-            <h3 class="font-serif text-lg font-bold text-ink-900 dark:text-paper-100 mb-2">
-              <a href={baseUrl(`/places/${place.id}`)} class="hover:text-terracotta-600 dark:hover:text-terracotta-100 transition-colors">
-                {place.data.name}
-              </a>
-            </h3>
-
-            {place.data.tips && (
-              <p class="text-xs text-ink-600 dark:text-ink-400 leading-relaxed mb-4 line-clamp-2">
-                💡 {place.data.tips}
-              </p>
-            )}
-          </div>
-
-          <div class="pt-3 border-t border-paper-100 dark:border-night-800 flex flex-wrap gap-1">
-            {place.data.facilities?.map((f) => (
-              <Badge variant="muted" size="sm">
-                {f}
-              </Badge>
-            ))}
-          </div>
-        </article>
-      ))}
+            <div class="pt-3 border-t border-paper-100 dark:border-night-800 flex flex-wrap gap-1">
+              {place.data.facilities?.map((f) => (
+                <Badge variant="muted" size="sm">
+                  {f}
+                </Badge>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
     </div>
   </div>
 </BaseLayout>

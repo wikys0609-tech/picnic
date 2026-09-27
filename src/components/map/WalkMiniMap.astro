@@ -1,0 +1,114 @@
+---
+import type { MapPlace, CourseStop } from '@/lib/map/types';
+import { baseUrl } from '@/lib/utils/url';
+import { Navigation } from '@lucide/astro';
+
+interface Props {
+  places: MapPlace[];
+  route?: string;
+  walkTitle: string;
+}
+
+const { places, route, walkTitle } = Astro.props;
+
+// 방문 순서대로 코스 경유지 데이터 구성
+const stops: CourseStop[] = places.map((place, index) => ({
+  order: index + 1,
+  place,
+}));
+
+const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
+const mapId = `walk-mini-map-${Math.random().toString(36).substring(2, 9)}`;
+---
+
+<div
+  class="my-10 rounded-2xl border border-paper-200 dark:border-night-800 bg-white dark:bg-night-900 overflow-hidden shadow-sm"
+  data-route={route}
+  aria-label={`${walkTitle} 산책 코스 지도`}
+>
+  <div class="p-4 sm:p-5 border-b border-paper-100 dark:border-night-800 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 rounded-lg bg-terracotta-50 dark:bg-night-800 text-terracotta-500 flex items-center justify-center">
+        <Navigation class="w-4 h-4" />
+      </div>
+      <div>
+        <h3 class="font-serif text-sm sm:text-base font-bold text-ink-900 dark:text-paper-100">
+          오늘의 산책 코스 지도
+        </h3>
+        <p class="text-[11px] text-ink-400">
+          총 {stops.length}곳 방문 ({places.map((p) => p.name).join(' → ')})
+        </p>
+      </div>
+    </div>
+
+    <span class="text-[11px] font-medium text-forest-700 dark:text-forest-100 bg-forest-50 dark:bg-night-800 px-2 py-0.5 rounded">
+      코스 순서 안내
+    </span>
+  </div>
+
+  <!-- 지도 캔버스 -->
+  <div class="relative w-full h-[280px] sm:h-[340px] bg-paper-100 dark:bg-night-950">
+    <div id={mapId} class="w-full h-full"></div>
+
+    <!-- 로딩 스피너 -->
+    <div
+      id={`${mapId}-loading`}
+      class="absolute inset-0 bg-paper-50/70 dark:bg-night-950/70 backdrop-blur-xs flex items-center justify-center z-10"
+    >
+      <div class="w-6 h-6 rounded-full border-2 border-terracotta-500 border-t-transparent animate-spin"></div>
+    </div>
+  </div>
+
+  <!-- 코스 경유지 리스트 -->
+  <div class="p-4 bg-paper-50/60 dark:bg-night-900/60 border-t border-paper-100 dark:border-night-800 divide-y divide-paper-100 dark:divide-night-800/60">
+    {stops.map(({ order, place }) => (
+      <div class="py-2 first:pt-0 last:pb-0 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2.5">
+          <span class="w-5 h-5 rounded-full bg-terracotta-500 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+            {order}
+          </span>
+          <div>
+            <span class="font-medium text-ink-800 dark:text-paper-200">{place.name}</span>
+            <span class="text-ink-400 text-[11px] ml-1">({place.sido} {place.sigungu})</span>
+          </div>
+        </div>
+
+        <a
+          href={baseUrl(`/places/${place.id}`)}
+          class="text-[11px] font-semibold text-terracotta-600 dark:text-terracotta-100 hover:underline"
+        >
+          장소 정보 &rarr;
+        </a>
+      </div>
+    ))}
+  </div>
+</div>
+
+<script define:vars={{ mapId, stops, baseUrlPrefix }}>
+  import { KakaoMapAdapter } from '@/lib/map/kakao-adapter';
+
+  async function initMiniMap() {
+    const container = document.getElementById(mapId);
+    const loadingEl = document.getElementById(`${mapId}-loading`);
+    if (!container) return;
+
+    try {
+      const adapter = new KakaoMapAdapter();
+      await adapter.init(container, { level: 5 });
+      adapter.addCourseMarkers(stops, baseUrlPrefix);
+      loadingEl?.classList.add('hidden');
+    } catch (err) {
+      console.error('산책 미니맵 로드 실패:', err);
+      if (loadingEl) {
+        loadingEl.innerHTML = '<span class="text-xs text-ink-400">지도를 불러올 수 없습니다.</span>';
+      }
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMiniMap);
+  } else {
+    initMiniMap();
+  }
+  document.addEventListener('astro:after-swap', initMiniMap);
+</script>

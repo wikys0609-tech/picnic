@@ -2,8 +2,10 @@
 import { getCollection, render } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import WalkCard from '@/components/walk/WalkCard.astro';
+import PlaceMap from '@/components/map/PlaceMap.astro';
 import Badge from '@/components/ui/Badge.astro';
 import { baseUrl } from '@/lib/utils/url';
+import type { MapPlace } from '@/lib/map/types';
 import { Footprints, ArrowLeft, Lightbulb } from '@lucide/astro';
 
 export async function getStaticPaths() {
@@ -16,6 +18,20 @@ export async function getStaticPaths() {
 
 const { place } = Astro.props;
 const { name, sido, sigungu, type, facilities, tips } = place.data;
+
+// 지도 컴포넌트용 장소 데이터
+const mapPlace: MapPlace = {
+  id: place.id,
+  name: place.data.name,
+  lat: place.data.lat,
+  lng: place.data.lng,
+  sido: place.data.sido,
+  sigungu: place.data.sigungu,
+  type: place.data.type,
+  facilities: place.data.facilities,
+  tips: place.data.tips,
+  hidden: place.data.hidden,
+};
 
 // 이 장소를 방문한 모든 산책 기록 조회
 const allWalks = await getCollection('walks', ({ data }) => {
@@ -85,6 +101,11 @@ const { Content } = await render(place);
           ))}
         </div>
       )}
+    </div>
+
+    <!-- 장소 위치 카카오 지도 -->
+    <div class="mb-10">
+      <PlaceMap place={mapPlace} />
     </div>
 
     <!-- 이 장소를 방문한 산책 기록들 -->

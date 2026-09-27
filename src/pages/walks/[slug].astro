@@ -3,9 +3,11 @@ import { getCollection, getEntries, render } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import WalkCover from '@/components/walk/WalkCover.astro';
 import PhotoGallery from '@/components/walk/PhotoGallery.astro';
+import WalkMiniMap from '@/components/map/WalkMiniMap.astro';
 import Badge from '@/components/ui/Badge.astro';
 import { baseUrl } from '@/lib/utils/url';
 import { formatDateKorean } from '@/lib/utils/date';
+import type { MapPlace } from '@/lib/map/types';
 import {
   Calendar,
   Clock,
@@ -57,6 +59,19 @@ const {
 
 const resolvedPlaces = await getEntries(places);
 const { Content } = await render(walk);
+
+const coursePlaces: MapPlace[] = resolvedPlaces.map((place) => ({
+  id: place.id,
+  name: place.data.name,
+  lat: place.data.lat,
+  lng: place.data.lng,
+  sido: place.data.sido,
+  sigungu: place.data.sigungu,
+  type: place.data.type,
+  facilities: place.data.facilities,
+  tips: place.data.tips,
+  hidden: place.data.hidden,
+}));
 ---
 
 <BaseLayout title={title} description={`${formatDateKorean(date)} 산책 기록: ${title}`}>
@@ -141,37 +156,8 @@ const { Content } = await render(walk);
     <!-- 사진 갤러리 (캡션 및 라이트박스 지원) -->
     <PhotoGallery photoFolder={photoFolder} cover={cover} captions={captions} title={title} />
 
-    <!-- 미니맵 플레이스홀더 (Phase 2에서 카카오맵과 연결) -->
-    <div class="my-10 p-5 rounded-2xl bg-paper-100 dark:bg-night-900 border border-paper-200 dark:border-night-800">
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-2 text-sm font-semibold text-ink-800 dark:text-paper-200">
-          <MapPin class="w-4 h-4 text-terracotta-500" />
-          <span>오늘의 산책 코스</span>
-        </div>
-        <span class="text-xs text-ink-400">
-          {resolvedPlaces.length}곳 방문
-        </span>
-      </div>
-      <div class="space-y-2">
-        {resolvedPlaces.map((place, idx) => (
-          <div class="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg bg-white dark:bg-night-800 border border-paper-200/60 dark:border-night-700/60">
-            <div class="flex items-center gap-2">
-              <span class="w-5 h-5 rounded-full bg-terracotta-100 dark:bg-terracotta-900/50 text-terracotta-600 dark:text-terracotta-100 text-[11px] font-bold flex items-center justify-center">
-                {idx + 1}
-              </span>
-              <span class="font-medium text-ink-800 dark:text-paper-200">{place.data.name}</span>
-              <span class="text-ink-400">({place.data.sido} {place.data.sigungu})</span>
-            </div>
-            <a
-              href={baseUrl(`/places/${place.id}`)}
-              class="text-terracotta-600 dark:text-terracotta-100 hover:underline"
-            >
-              장소 정보 &rarr;
-            </a>
-          </div>
-        ))}
-      </div>
-    </div>
+    <!-- 산책 코스 인터랙티브 미니맵 (카카오맵 연동) -->
+    <WalkMiniMap places={coursePlaces} route={walk.data.route} walkTitle={title} />
 
     <!-- 태그 목록 -->
     {tags && tags.length > 0 && (

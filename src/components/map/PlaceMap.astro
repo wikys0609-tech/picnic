@@ -1,0 +1,84 @@
+---
+import type { MapPlace } from '@/lib/map/types';
+import { baseUrl } from '@/lib/utils/url';
+import { MapPin, ShieldAlert } from '@lucide/astro';
+
+interface Props {
+  place: MapPlace;
+}
+
+const { place } = Astro.props;
+const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
+const mapId = `place-map-${Math.random().toString(36).substring(2, 9)}`;
+---
+
+<div class="rounded-2xl border border-paper-200 dark:border-night-800 bg-white dark:bg-night-900 overflow-hidden shadow-sm">
+  <div class="p-4 border-b border-paper-100 dark:border-night-800 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <MapPin class="w-4 h-4 text-terracotta-500" />
+      <h3 class="font-serif text-sm font-bold text-ink-900 dark:text-paper-100">
+        위치 안내
+      </h3>
+    </div>
+    <span class="text-xs text-ink-400">
+      {place.sido} {place.sigungu}
+    </span>
+  </div>
+
+  {place.hidden ? (
+    <div class="p-8 text-center bg-paper-100/50 dark:bg-night-950 flex flex-col items-center justify-center gap-2">
+      <ShieldAlert class="w-8 h-8 text-ink-400" />
+      <h4 class="font-serif text-sm font-bold text-ink-800 dark:text-paper-200">
+        비공개 좌표 장소
+      </h4>
+      <p class="text-xs text-ink-500 dark:text-ink-400 max-w-sm">
+        사생활 보호를 위해 상세 좌표가 공개 지도에 표시되지 않는 장소입니다. ({place.sido} {place.sigungu} 권역)
+      </p>
+    </div>
+  ) : (
+    <div class="relative w-full h-[260px] sm:h-[300px] bg-paper-100 dark:bg-night-950">
+      <div id={mapId} class="w-full h-full"></div>
+
+      <div
+        id={`${mapId}-loading`}
+        class="absolute inset-0 bg-paper-50/70 dark:bg-night-950/70 backdrop-blur-xs flex items-center justify-center z-10"
+      >
+        <div class="w-6 h-6 rounded-full border-2 border-terracotta-500 border-t-transparent animate-spin"></div>
+      </div>
+    </div>
+  )}
+</div>
+
+{!place.hidden && (
+  <script define:vars={{ mapId, place, baseUrlPrefix }}>
+    import { KakaoMapAdapter } from '@/lib/map/kakao-adapter';
+
+    async function initPlaceMap() {
+      const container = document.getElementById(mapId);
+      const loadingEl = document.getElementById(`${mapId}-loading`);
+      if (!container) return;
+
+      try {
+        const adapter = new KakaoMapAdapter();
+        await adapter.init(container, {
+          center: { lat: place.lat, lng: place.lng },
+          level: 4,
+        });
+        adapter.addPlaceMarkers([place], undefined, baseUrlPrefix);
+        loadingEl?.classList.add('hidden');
+      } catch (err) {
+        console.error('장소 지도 로드 실패:', err);
+        if (loadingEl) {
+          loadingEl.innerHTML = '<span class="text-xs text-ink-400">지도를 불러올 수 없습니다.</span>';
+        }
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPlaceMap);
+    } else {
+      initPlaceMap();
+    }
+    document.addEventListener('astro:after-swap', initPlaceMap);
+  </script>
+)}
