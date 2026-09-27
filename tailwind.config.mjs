@@ -22,10 +22,16 @@ export default {
           'sans-serif',
         ],
         serif: [
+          'Gowun Batang',
           'MaruBuri',
           'Nanum Myeongjo',
           'Batang',
           'serif',
+        ],
+        handwriting: [
+          'Gaegu',
+          'Nanum Pen Script',
+          'cursive',
         ],
       },
       colors: {
@@ -57,6 +63,18 @@ export default {
           500: '#3D5E48',
           600: '#314D3A',
           700: '#253C2D',
+        },
+        wood: {
+          950: '#1d120a',
+          900: '#2b1b0f',
+          800: '#3e2717',
+          700: '#543621',
+          600: '#6f472c',
+          500: '#8c5b39',
+          400: '#ab754f',
+          300: '#ca9771',
+          200: '#e3be9f',
+          100: '#f4dfcf',
         },
         night: {
           950: '#141312',

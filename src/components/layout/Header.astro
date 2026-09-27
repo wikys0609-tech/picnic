@@ -1,14 +1,15 @@
 ---
 import { baseUrl } from '@/lib/utils/url';
 import ThemeToggle from '@/components/ui/ThemeToggle.astro';
-import { Footprints, Map, Trophy, BookOpen } from '@lucide/astro';
+import SoundToggle from '@/components/ui/SoundToggle.astro';
+import { Map, Trophy, BookOpen, Library } from '@lucide/astro';
 
 const pathname = Astro.url.pathname;
 
 const navItems = [
-  { href: baseUrl('/'), label: '홈', icon: Footprints, exact: true },
-  { href: baseUrl('/archive'), label: '산책 기록', icon: BookOpen },
-  { href: baseUrl('/map'), label: '지도', icon: Map },
+  { href: baseUrl('/'), label: '서가', icon: Library, exact: true },
+  { href: baseUrl('/archive'), label: '열람 기록부', icon: BookOpen },
+  { href: baseUrl('/map'), label: '장소 지도', icon: Map },
   { href: baseUrl('/conquest'), label: '정복 지도', icon: Trophy },
 ];
 
@@ -27,20 +28,20 @@ function isActive(itemHref: string, exact: boolean = false) {
       href={baseUrl('/')}
       class="group flex items-center gap-2.5 transition-transform hover:scale-[1.01]"
     >
-      <div class="w-8 h-8 rounded-lg bg-terracotta-500 text-white flex items-center justify-center shadow-sm group-hover:bg-terracotta-600 transition-colors">
-        <Footprints class="w-5 h-5" />
+      <div class="w-8 h-8 rounded-lg bg-forest-600 dark:bg-forest-700 text-white flex items-center justify-center shadow-sm group-hover:bg-forest-700 dark:group-hover:bg-forest-600 transition-colors">
+        <Library class="w-4 h-4 text-paper-100" />
       </div>
       <div>
         <span class="font-serif text-lg font-bold tracking-tight text-ink-900 dark:text-paper-100 group-hover:text-terracotta-600 dark:group-hover:text-terracotta-100 transition-colors">
           소풍
         </span>
-        <span class="hidden sm:inline-block ml-2 text-xs text-ink-500 dark:text-ink-400 font-sans">
-          수도권 산책 일기
+        <span class="hidden sm:inline-block ml-2 text-xs text-ink-500 dark:text-ink-400 font-serif">
+          숲 속의 산책 도서관
         </span>
       </div>
     </a>
 
-    <!-- 네비게이션 & 테마 토글 -->
+    <!-- 네비게이션, 사운드 토글 & 테마 토글 -->
     <div class="flex items-center gap-1 sm:gap-2">
       <nav class="flex items-center gap-1">
         {navItems.map((item) => {
@@ -48,7 +49,7 @@ function isActive(itemHref: string, exact: boolean = false) {
           return (
             <a
               href={item.href}
-              class={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              class={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                 active
                   ? 'bg-paper-200/80 text-terracotta-600 dark:bg-night-800 dark:text-terracotta-100 font-semibold'
                   : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-paper-100 hover:bg-paper-100 dark:hover:bg-night-900'
@@ -62,6 +63,7 @@ function isActive(itemHref: string, exact: boolean = false) {
 
       <div class="h-4 w-px bg-paper-300 dark:bg-night-700 mx-1"></div>
 
+      <SoundToggle />
       <ThemeToggle />
     </div>
   </div>

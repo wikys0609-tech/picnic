@@ -38,20 +38,21 @@ const mapPlaces: MapPlace[] = places.map((place) => {
 });
 ---
 
-<BaseLayout title="산책 장소 지도" description="수도권 곳곳에 담아둔 공원과 골목">
-  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-    <header class="mb-8">
-      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-forest-50 dark:bg-night-800 text-forest-700 dark:text-forest-100 text-xs font-medium mb-3 border border-forest-100 dark:border-forest-700/50">
-        <Map class="w-3.5 h-3.5 text-forest-500" />
-        <span>인터랙티브 장소 지도</span>
-      </div>
-      <h1 class="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-ink-900 dark:text-paper-100">
-        발걸음이 닿은 장소들
-      </h1>
-      <p class="mt-2 text-sm text-ink-500 dark:text-ink-400">
-        마커를 클릭하면 장소 정보와 그곳을 다녀온 산책 일기들을 볼 수 있습니다. (총 {places.length}곳)
-      </p>
-    </header>
+<BaseLayout title="도서관 장소 지도" description="도서관 벽에 걸린 수도권 산책 장소 지도">
+  <div class="library-sunlight min-h-screen py-10 sm:py-16">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6">
+      <header class="mb-8">
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-forest-100/80 dark:bg-forest-950 text-forest-800 dark:text-forest-200 text-xs font-serif font-medium mb-3 border border-forest-200 dark:border-forest-800">
+          <Map class="w-3.5 h-3.5 text-forest-600 dark:text-forest-400" />
+          <span>도서관 벽면 지도</span>
+        </div>
+        <h1 class="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-ink-900 dark:text-paper-100">
+          발걸음이 닿은 장소들
+        </h1>
+        <p class="mt-2 text-sm text-ink-500 dark:text-ink-400 font-serif">
+          벽면에 걸린 수도권 지도입니다. 마커를 클릭하면 앨범 정보가 열리고, 해당 장소의 책으로 이동할 수 있습니다. (총 {places.length}권의 앨범)
+        </p>
+      </header>
 
     <!-- 카카오맵 인터랙티브 뷰 -->
     <div class="mb-14">
@@ -104,4 +105,5 @@ const mapPlaces: MapPlace[] = places.map((place) => {
       </div>
     </div>
   </div>
+</div>
 </BaseLayout>

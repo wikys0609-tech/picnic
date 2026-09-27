@@ -1,0 +1,98 @@
+---
+import { baseUrl } from '@/lib/utils/url';
+import { ZoomIn, Camera } from '@lucide/astro';
+import fs from 'node:fs';
+import path from 'node:path';
+
+interface Props {
+  photoFolder?: string;
+  cover?: string;
+  captions?: Record<string, string>;
+  title: string;
+}
+
+const {
+  photoFolder,
+  cover = 'cover.webp',
+  captions = {},
+  title,
+} = Astro.props;
+
+// 사진 목록 구성
+const rawList = cover ? [cover, ...Object.keys(captions).filter((k) => k !== cover)] : Object.keys(captions);
+
+// 실제 로컬 디렉터리에 존재하는 사진 파일만 선별
+const photoList = photoFolder
+  ? rawList.filter((filename) => {
+      try {
+        const localPath = path.join(process.cwd(), 'public', 'photos', photoFolder, filename);
+        return fs.existsSync(localPath);
+      } catch (e) {
+        return false;
+      }
+    })
+  : [];
+
+// 스크랩북 기울기 효과 (자연스러운 수작업 느낌)
+const tilts = ['-rotate-1', 'rotate-1', 'rotate-[0.5deg]', '-rotate-[1.5deg]'];
+---
+
+{photoFolder && (
+  <div class="my-8 scrapbook-gallery">
+    {photoList.length > 0 ? (
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
+        {photoList.map((filename, idx) => {
+          const fullUrl = baseUrl(`/photos/${photoFolder}/${filename}`);
+          const caption = captions[filename] || title;
+          const tiltClass = tilts[idx % tilts.length];
+          return (
+            <div class={`relative transition-transform duration-300 hover:rotate-0 hover:scale-[1.02] ${tiltClass}`}>
+              {/* 마스킹 테이프 장식 */}
+              <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-5 tape-strip z-10 rounded-sm pointer-events-none opacity-85 rotate-[-2deg]"></div>
+
+              {/* 인화 사진 카드 */}
+              <figure class="bg-white dark:bg-night-900 p-3 pb-4 rounded shadow-md border border-paper-200 dark:border-night-700">
+                <button
+                  type="button"
+                  class="w-full text-left focus:outline-none focus:ring-2 focus:ring-amber-500/50 scrapbook-img-btn group relative block overflow-hidden rounded-sm"
+                  data-img-src={fullUrl}
+                  data-caption={caption}
+                  aria-label={`${caption} 사진 확대보기`}
+                >
+                  <div class="aspect-[4/3] w-full overflow-hidden bg-paper-100 dark:bg-night-800">
+                    <img
+                      src={fullUrl}
+                      alt={caption}
+                      loading="lazy"
+                      decoding="async"
+                      class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </div>
+                  <div class="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                    <ZoomIn class="w-6 h-6 drop-shadow" />
+                  </div>
+                </button>
+
+                {/* 손글씨(Gaegu) 캡션 */}
+                <figcaption class="mt-2.5 px-1 font-handwriting text-base sm:text-lg text-ink-700 dark:text-paper-200 text-center leading-snug">
+                  {captions[filename] || caption}
+                </figcaption>
+              </figure>
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      /* 사진 폴더는 있으나 아직 이미지가 동기화되지 않은 경우의 아늑한 플레이스홀더 */
+      <div class="p-6 rounded-xl border border-dashed border-paper-300 dark:border-night-700 bg-paper-100/50 dark:bg-night-900/40 text-center">
+        <Camera class="w-6 h-6 mx-auto mb-2 text-ink-400 opacity-60" />
+        <p class="font-handwriting text-lg text-ink-600 dark:text-ink-400">
+          이 날 찍은 사진들은 사서의 보관함에 잘 간직되어 있습니다.
+        </p>
+        <p class="text-xs text-ink-400 mt-1">
+          (Phase 5 Google Drive 사진 동기화 완료 시 스크랩북으로 꽂힙니다)
+        </p>
+      </div>
+    )}
+  </div>
+)}

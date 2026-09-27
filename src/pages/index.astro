@@ -1,9 +1,17 @@
 ---
 import { getCollection } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import WalkCard from '@/components/walk/WalkCard.astro';
+import Bookshelf from '@/components/bookshelf/Bookshelf.astro';
 import { baseUrl } from '@/lib/utils/url';
-import { Footprints, Map, Trophy, Compass, ArrowRight, Sparkles } from '@lucide/astro';
+import {
+  BookOpen,
+  Map,
+  Trophy,
+  Sparkles,
+  ArrowRight,
+  TreePine,
+  SunMedium,
+} from '@lucide/astro';
 
 // 전체 산책 기록 조회 (최신순)
 const allWalks = await getCollection('walks', ({ data }) => {
@@ -11,118 +19,104 @@ const allWalks = await getCollection('walks', ({ data }) => {
 });
 
 allWalks.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
-
-const recentWalks = allWalks.slice(0, 6);
 const allPlaces = await getCollection('places');
 
 // 방문한 고유 시군구 추출
 const visitedSigungu = new Set(allPlaces.map((p) => `${p.data.sido} ${p.data.sigungu}`));
 ---
 
-<BaseLayout>
-  <!-- 히어로 소개 섹션 -->
-  <section class="border-b border-paper-200 dark:border-night-800 bg-gradient-to-b from-paper-100/60 to-transparent dark:from-night-900/40 py-12 sm:py-16">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6">
-      <div class="max-w-2xl">
-        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-terracotta-50 dark:bg-night-800 text-terracotta-700 dark:text-terracotta-100 text-xs font-medium mb-4 border border-terracotta-100/60 dark:border-terracotta-700/40">
-          <Sparkles class="w-3.5 h-3.5" />
-          <span>수도권 발걸음 기록</span>
+<BaseLayout
+  title="소풍 - 숲 속의 산책 도서관"
+  description="숲 속의 작은 도서관. 서가에 꽂힌 책들은 모두 내가 다녀온 장소의 앨범입니다."
+>
+  <div class="library-sunlight min-h-screen">
+    <!-- 도서관 히어로 소개 섹션 -->
+    <section class="relative pt-12 pb-10 sm:pt-16 sm:pb-12 border-b border-paper-200/80 dark:border-night-800">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6">
+        <div class="max-w-3xl">
+          <!-- 도서관 현판 뱃지 -->
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-forest-100/80 dark:bg-forest-950 text-forest-800 dark:text-forest-200 text-xs font-serif font-medium mb-5 border border-forest-200 dark:border-forest-800 shadow-xs">
+            <TreePine class="w-3.5 h-3.5 text-forest-600 dark:text-forest-400" />
+            <span>숲 속의 작은 산책 도서관</span>
+            <span class="w-1 h-1 rounded-full bg-forest-400"></span>
+            <SunMedium class="w-3.5 h-3.5 text-amber-500" />
+            <span>창가 햇살</span>
+          </div>
+
+          <h1 class="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-ink-900 dark:text-paper-100 leading-tight">
+            나무 냄새 밴 서가에<br class="hidden sm:inline" />
+            걸음마다 피어난 풍경을 꽂아둡니다.
+          </h1>
+
+          <p class="mt-4 text-base sm:text-lg text-ink-600 dark:text-ink-300 font-serif leading-relaxed">
+            창밖으로 푸른 나뭇잎이 흔들리는 숲속 도서관입니다.<br class="hidden sm:inline" />
+            서가에 꽂힌 한 권 한 권의 책은 모두 내가 다녀온 장소의 앨범입니다.
+            책을 골라 빼어들고, 그날의 바람과 햇살을 천천히 넘겨보세요.
+          </p>
+
+          <!-- 도서관 현황 요약 칩 -->
+          <div class="mt-8 flex flex-wrap items-center gap-3 text-xs sm:text-sm font-serif">
+            <!-- 앨범 권수 -->
+            <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/80 dark:bg-night-900/80 backdrop-blur border border-paper-200 dark:border-night-800 shadow-xs">
+              <BookOpen class="w-4 h-4 text-wood-600 dark:text-wood-400" />
+              <span class="text-ink-500 dark:text-ink-400">꽂힌 앨범</span>
+              <strong class="font-semibold text-ink-900 dark:text-paper-100">{allPlaces.length}권</strong>
+            </div>
+
+            <!-- 산책 기록 수 -->
+            <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/80 dark:bg-night-900/80 backdrop-blur border border-paper-200 dark:border-night-800 shadow-xs">
+              <Sparkles class="w-4 h-4 text-terracotta-500" />
+              <span class="text-ink-500 dark:text-ink-400">담긴 산책의 장</span>
+              <strong class="font-semibold text-ink-900 dark:text-paper-100">{allWalks.length}편</strong>
+            </div>
+
+            <!-- 정복 현황 링크 -->
+            <a
+              href={baseUrl('/conquest')}
+              class="group flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/80 dark:bg-night-900/80 backdrop-blur border border-paper-200 dark:border-night-800 shadow-xs hover:border-terracotta-300 dark:hover:border-terracotta-700/60 transition-colors"
+            >
+              <Trophy class="w-4 h-4 text-amber-500" />
+              <span class="text-ink-500 dark:text-ink-400">정복한 구역</span>
+              <strong class="font-semibold text-terracotta-600 dark:text-terracotta-200">{visitedSigungu.size} / 83</strong>
+              <ArrowRight class="w-3.5 h-3.5 text-ink-400 group-hover:translate-x-0.5 transition-transform" />
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 도서관 서가 메인 섹션 -->
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+      <Bookshelf places={allPlaces} walks={allWalks} />
+
+      <!-- 하단 안내 배너 (지도 & 열람 기록부) -->
+      <section class="mt-16 p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-night-900/60 backdrop-blur border border-paper-200 dark:border-night-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div class="space-y-1 text-center sm:text-left">
+          <h3 class="font-serif text-lg font-bold text-ink-900 dark:text-paper-100">
+            도서관의 다른 열람실을 둘러보세요
+          </h3>
+          <p class="text-xs sm:text-sm text-ink-600 dark:text-ink-400 font-serif">
+            벽에 걸린 수도권 대형 지도에서 장소를 찾거나, 날짜순 열람 기록부로 산책을 감상할 수 있습니다.
+          </p>
         </div>
 
-        <h1 class="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-ink-900 dark:text-paper-100 leading-tight">
-          계절을 걷고,<br class="hidden sm:inline" />
-          마음에 풍경을 새깁니다.
-        </h1>
-
-        <p class="mt-4 text-base sm:text-lg text-ink-600 dark:text-ink-400 font-sans leading-relaxed">
-          서울과 경기, 인천의 공원과 호젓한 골목을 천천히 걸으며 기록한 일기입니다.
-          바람의 온도와 풍경의 색채, 그날의 감상을 조용히 모아둡니다.
-        </p>
-
-        <!-- 통계 요약 칩 -->
-        <div class="mt-8 flex flex-wrap items-center gap-4 text-xs sm:text-sm">
-          <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-night-900 border border-paper-200 dark:border-night-800 shadow-sm">
-            <Footprints class="w-4 h-4 text-terracotta-500" />
-            <span class="text-ink-500 dark:text-ink-400">산책 기록</span>
-            <strong class="font-semibold text-ink-900 dark:text-paper-100">{allWalks.length}회</strong>
-          </div>
-
-          <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-night-900 border border-paper-200 dark:border-night-800 shadow-sm">
-            <Compass class="w-4 h-4 text-forest-500" />
-            <span class="text-ink-500 dark:text-ink-400">담아둔 장소</span>
-            <strong class="font-semibold text-ink-900 dark:text-paper-100">{allPlaces.length}곳</strong>
-          </div>
-
+        <div class="flex items-center gap-3 shrink-0">
           <a
-            href={baseUrl('/conquest')}
-            class="group flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-night-900 border border-paper-200 dark:border-night-800 shadow-sm hover:border-terracotta-300 dark:hover:border-terracotta-700/60 transition-colors"
+            href={baseUrl('/archive')}
+            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white dark:bg-night-800 text-xs sm:text-sm font-semibold font-serif text-ink-800 dark:text-paper-100 border border-paper-300 dark:border-night-700 hover:border-terracotta-300 transition-colors shadow-xs"
           >
-            <Trophy class="w-4 h-4 text-amber-500" />
-            <span class="text-ink-500 dark:text-ink-400">정복한 구역</span>
-            {/* NOTE: 83개 구역 총 수는 현재 임시 상수이며, Phase 6에서 GeoJSON 경계 데이터 기반 동적 계산으로 교체됩니다. */}
-            <strong class="font-semibold text-terracotta-600 dark:text-terracotta-100">{visitedSigungu.size} / 83</strong>
-            <ArrowRight class="w-3.5 h-3.5 text-ink-400 group-hover:translate-x-0.5 transition-transform" />
+            <BookOpen class="w-4 h-4 text-wood-600 dark:text-wood-400" />
+            열람 기록부
+          </a>
+          <a
+            href={baseUrl('/map')}
+            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-forest-600 hover:bg-forest-700 text-xs sm:text-sm font-semibold font-serif text-white transition-colors shadow-xs"
+          >
+            <Map class="w-4 h-4" />
+            장소 지도
           </a>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 최근 산책 피드 섹션 -->
-  <section class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-    <div class="flex items-end justify-between mb-8">
-      <div>
-        <h2 class="font-serif text-2xl font-bold tracking-tight text-ink-900 dark:text-paper-100">
-          최근의 발걸음
-        </h2>
-        <p class="text-xs sm:text-sm text-ink-500 dark:text-ink-400 mt-1">
-          가장 최근에 다녀온 산책들의 기록입니다.
-        </p>
-      </div>
-
-      <a
-        href={baseUrl('/archive')}
-        class="inline-flex items-center text-xs sm:text-sm font-semibold text-terracotta-600 dark:text-terracotta-100 hover:text-terracotta-700 dark:hover:text-terracotta-200 transition-colors"
-      >
-        전체 보기 ({allWalks.length})
-        <ArrowRight class="w-4 h-4 ml-1" />
-      </a>
-    </div>
-
-    <!-- 카드 그리드 -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {recentWalks.map((walk) => (
-        <WalkCard walk={walk} />
-      ))}
-    </div>
-
-    <!-- 둘러보기 배너 카드 -->
-    <div class="mt-12 p-6 sm:p-8 rounded-2xl bg-paper-100/80 dark:bg-night-900 border border-paper-200 dark:border-night-800 flex flex-col sm:flex-row items-center justify-between gap-6">
-      <div class="space-y-1 text-center sm:text-left">
-        <h3 class="font-serif text-lg font-bold text-ink-900 dark:text-paper-100">
-          지도 위에서 산책 발자국을 확인해보세요
-        </h3>
-        <p class="text-xs sm:text-sm text-ink-600 dark:text-ink-400">
-          들렀던 공원과 산책로 마커, 그리고 수도권 83개 구·시·군 정복 현황을 볼 수 있습니다.
-        </p>
-      </div>
-
-      <div class="flex items-center gap-3 shrink-0">
-        <a
-          href={baseUrl('/map')}
-          class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white dark:bg-night-800 text-xs sm:text-sm font-semibold text-ink-800 dark:text-paper-100 border border-paper-300 dark:border-night-700 hover:border-terracotta-300 transition-colors shadow-sm"
-        >
-          <Map class="w-4 h-4 text-forest-500" />
-          장소 지도
-        </a>
-        <a
-          href={baseUrl('/conquest')}
-          class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-terracotta-500 hover:bg-terracotta-600 text-xs sm:text-sm font-semibold text-white transition-colors shadow-sm"
-        >
-          <Trophy class="w-4 h-4" />
-          정복 지도
-        </a>
-      </div>
-    </div>
-  </section>
+      </section>
+    </main>
+  </div>
 </BaseLayout>

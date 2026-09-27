@@ -1,4 +1,5 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+@import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Gowun+Batang:wght@400;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -12,6 +13,7 @@
     --text-muted: #736C63;
     --border-subtle: #EBE5DB;
     --accent-warm: #9E472A;
+    --wood-shelf: #452a17;
   }
 
   .dark {
@@ -21,6 +23,7 @@
     --text-muted: #9C958A;
     --border-subtle: #2C2925;
     --accent-warm: #D96F4E;
+    --wood-shelf: #2c1a0e;
   }
 
   html {
@@ -50,23 +53,87 @@
   }
 }
 
-/* 산문집 감성의 편안한 읽기 전용 Prose 스타일 보강 */
+/* 숲속 햇살 / 야간 스탠드 조명 배경 */
+.library-sunlight {
+  background: 
+    radial-gradient(ellipse 65% 50% at 20% 0%, rgba(254, 243, 199, 0.45), transparent 70%),
+    radial-gradient(ellipse 55% 45% at 85% 15%, rgba(220, 252, 231, 0.35), transparent 60%);
+}
+
+.dark .library-sunlight {
+  background: 
+    radial-gradient(ellipse 60% 40% at 30% 0%, rgba(217, 119, 6, 0.12), transparent 70%),
+    radial-gradient(ellipse 50% 50% at 80% 10%, rgba(24, 24, 27, 0.6), transparent 70%);
+}
+
+/* 서가 나무 선반 텍스처 */
+.shelf-board {
+  background: linear-gradient(180deg, #6c4727 0%, #52351c 30%, #3e2613 70%, #261609 100%);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+    0 8px 16px -2px rgba(0, 0, 0, 0.35);
+}
+
+.dark .shelf-board {
+  background: linear-gradient(180deg, #442a17 0%, #341e0f 30%, #251408 70%, #150a04 100%);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.7),
+    0 8px 16px -2px rgba(0, 0, 0, 0.6);
+}
+
+/* 책등 세로쓰기 */
+.writing-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* 산문집 감성의 편안한 읽기 전용 Prose 스타일 */
 .prose-essay {
-  font-size: 1.0625rem;
-  line-height: 1.85;
-  letter-spacing: -0.01em;
+  font-family: 'Gowun Batang', MaruBuri, Nanum Myeongjo, serif;
+  font-size: 1.125rem;
+  line-height: 2.05;
+  letter-spacing: -0.015em;
 }
 
 .prose-essay p {
-  margin-bottom: 1.6em;
+  margin-bottom: 1.75em;
+  text-indent: 0.5em;
 }
 
 .prose-essay p:first-of-type::first-letter {
   float: left;
-  font-size: 2.75em;
+  font-size: 2.6em;
   line-height: 0.9;
-  margin-right: 0.15em;
+  margin-right: 0.2em;
   padding-top: 0.05em;
   color: var(--accent-warm);
-  font-family: serif;
+}
+
+/* 스크랩북 테이프 효과 */
+.tape-strip {
+  background: rgba(255, 255, 240, 0.75);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(1px);
+}
+
+.dark .tape-strip {
+  background: rgba(180, 160, 130, 0.45);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* 부드러운 가로 스크롤바 */
+.hide-scrollbar::-webkit-scrollbar {
+  height: 6px;
+}
+.hide-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hide-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(140, 110, 80, 0.3);
+  border-radius: 9999px;
+}
+.hide-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 110, 80, 0.5);
 }

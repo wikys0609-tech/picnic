@@ -1,0 +1,61 @@
+---
+import { Volume2, VolumeX } from '@lucide/astro';
+---
+
+<button
+  id="sound-toggle-btn"
+  type="button"
+  class="relative inline-flex items-center justify-center w-9 h-9 rounded-lg text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-paper-100 hover:bg-paper-200/60 dark:hover:bg-night-800 transition-colors"
+  aria-label="효과음 토글"
+  title="도서관 효과음 켜기/끄기 (기본 꺼짐)"
+>
+  <span id="sound-icon-on" class="hidden">
+    <Volume2 class="w-4 h-4 text-forest-600 dark:text-forest-400" />
+  </span>
+  <span id="sound-icon-off" class="inline">
+    <VolumeX class="w-4 h-4 opacity-70" />
+  </span>
+</button>
+
+<script>
+  import { isSoundEnabled, setSoundEnabled, playBookSlideSound } from '@/lib/sound/library-sounds';
+
+  function updateSoundIcons() {
+    const onIcon = document.getElementById('sound-icon-on');
+    const offIcon = document.getElementById('sound-icon-off');
+    const enabled = isSoundEnabled();
+
+    if (enabled) {
+      onIcon?.classList.remove('hidden');
+      onIcon?.classList.add('inline');
+      offIcon?.classList.remove('inline');
+      offIcon?.classList.add('hidden');
+    } else {
+      onIcon?.classList.remove('inline');
+      onIcon?.classList.add('hidden');
+      offIcon?.classList.remove('hidden');
+      offIcon?.classList.add('inline');
+    }
+  }
+
+  function setupSoundToggle() {
+    const btn = document.getElementById('sound-toggle-btn');
+    if (!btn) return;
+
+    updateSoundIcons();
+
+    // 중복 등록 방지를 위해 이벤트 리스너 교체
+    btn.onclick = () => {
+      const nextState = !isSoundEnabled();
+      setSoundEnabled(nextState);
+      updateSoundIcons();
+      if (nextState) {
+        playBookSlideSound();
+      }
+    };
+  }
+
+  setupSoundToggle();
+  document.addEventListener('astro:after-swap', setupSoundToggle);
+  window.addEventListener('picnic-sound-toggle', updateSoundIcons);
+</script>

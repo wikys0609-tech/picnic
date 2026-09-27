@@ -17,7 +17,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowLeft,
+  ArrowRight,
   Tag,
+  BookOpen,
 } from '@lucide/astro';
 
 export async function getStaticPaths() {
@@ -86,6 +88,25 @@ const coursePlaces: MapPlace[] = resolvedPlaces.map((place) => ({
         모든 산책 기록으로 돌아가기
       </a>
     </div>
+
+    <!-- 서가/앨범 연계 안내 배너 -->
+    {resolvedPlaces.length > 0 && (
+      <div class="mb-8 p-3.5 sm:p-4 rounded-xl bg-paper-100 dark:bg-night-900 border border-paper-200 dark:border-night-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-serif">
+        <div class="flex items-center gap-2">
+          <BookOpen class="w-4 h-4 text-wood-600 dark:text-wood-400 shrink-0" />
+          <span class="text-ink-700 dark:text-paper-300">
+            이 기록은 <strong class="text-ink-900 dark:text-paper-100">{resolvedPlaces[0].data.name}</strong> 앨범에 한 장(章)으로 수록되어 있습니다.
+          </span>
+        </div>
+        <a
+          href={baseUrl(`/places/${resolvedPlaces[0].id}#chapter-${walk.id}`)}
+          class="shrink-0 font-semibold text-terracotta-600 dark:text-terracotta-300 hover:underline flex items-center gap-1"
+        >
+          <span>앨범 펼쳐보기</span>
+          <ArrowRight class="w-3 h-3" />
+        </a>
+      </div>
+    )}
 
     <!-- 헤더 영역 -->
     <header class="mb-10 text-center sm:text-left">

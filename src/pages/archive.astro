@@ -62,21 +62,22 @@ for (const item of walksWithPlaces) {
 }
 ---
 
-<BaseLayout title="산책 기록 아카이브" description="연도 및 월별로 모아보는 모든 산책 기록">
-  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-    <!-- 헤더 -->
-    <header class="mb-10">
-      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-paper-200/80 dark:bg-night-800 text-ink-600 dark:text-ink-400 text-xs font-medium mb-3">
-        <BookOpen class="w-3.5 h-3.5" />
-        <span>전체 아카이브</span>
-      </div>
-      <h1 class="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-ink-900 dark:text-paper-100">
-        걸어온 길의 타임라인
-      </h1>
-      <p class="mt-2 text-sm text-ink-500 dark:text-ink-400">
-        총 {allWalks.length}편의 산책 기록이 날짜순으로 정돈되어 있습니다.
-      </p>
-    </header>
+<BaseLayout title="열람 기록부" description="날짜순으로 펼쳐보는 도서관의 모든 산책 기록">
+  <div class="library-sunlight min-h-screen py-10 sm:py-16">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+      <!-- 헤더 -->
+      <header class="mb-10">
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-paper-200/80 dark:bg-night-800 text-ink-600 dark:text-ink-400 text-xs font-serif font-medium mb-3">
+          <BookOpen class="w-3.5 h-3.5 text-wood-600 dark:text-wood-400" />
+          <span>도서관 열람 기록부</span>
+        </div>
+        <h1 class="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-ink-900 dark:text-paper-100">
+          걸어온 날들의 일지
+        </h1>
+        <p class="mt-2 text-sm text-ink-500 dark:text-ink-400 font-serif">
+          총 {allWalks.length}편의 산책 기록이 날짜순으로 정돈되어 있습니다.
+        </p>
+      </header>
 
     <!-- 태그 필터 칩 영역 -->
     {sortedTags.length > 0 && (
@@ -173,6 +174,7 @@ for (const item of walksWithPlaces) {
       ))}
     </div>
   </div>
+</div>
 </BaseLayout>
 
 <script>

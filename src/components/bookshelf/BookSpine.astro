@@ -1,0 +1,232 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { baseUrl } from '@/lib/utils/url';
+import { formatDateKorean } from '@/lib/utils/date';
+import { Sparkles, Calendar, Footprints, ArrowRight } from '@lucide/astro';
+
+interface Props {
+  place: CollectionEntry<'places'>;
+  walks: CollectionEntry<'walks'>[];
+}
+
+const { place, walks } = Astro.props;
+const { name, sido, sigungu, type, tips } = place.data;
+
+const walkCount = walks.length;
+// 최신 산책일
+const latestWalk = walks.length > 0 ? walks[0] : null;
+
+// 7일 이내 최근 방문 또는 신규 여부 (기준일: 2026-09-27)
+const isRecent = latestWalk
+  ? (new Date('2026-09-27').getTime() - new Date(latestWalk.data.date).getTime()) / (1000 * 60 * 60 * 24) <= 7
+  : false;
+
+// 장소 ID 기반 결정적 높이 (245px ~ 290px)
+const idHash = place.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+const spineHeight = 245 + (idHash % 46);
+
+// 방문 횟수에 따른 책 두께 (34px ~ 62px)
+let spineWidth = 36;
+if (walkCount === 1) spineWidth = 44;
+else if (walkCount === 2) spineWidth = 54;
+else if (walkCount >= 3) spineWidth = 64;
+
+// 유형별 테마 색상 (고급 가죽/양장본 톤)
+interface ThemeConfig {
+  bg: string;
+  foil: string;
+  band: string;
+  badgeBg: string;
+  badgeText: string;
+}
+
+const themeMap: Record<string, ThemeConfig> = {
+  공원: {
+    bg: '#25442f', // 짙은 숲빛
+    foil: '#f0e3c8', // 앤틱 골드박
+    band: '#3b6748',
+    badgeBg: '#183020',
+    badgeText: '#d1fae5',
+  },
+  동네: {
+    bg: '#7b3420', // 테라코타 벽돌
+    foil: '#faede0', // 웜 크림박
+    band: '#a1472e',
+    badgeBg: '#592213',
+    badgeText: '#fee2e2',
+  },
+  하천길: {
+    bg: '#1c394c', // 강물빛 네이비
+    foil: '#e2f0fa', // 실버 블루박
+    band: '#2a536e',
+    badgeBg: '#122634',
+    badgeText: '#cffafe',
+  },
+  산: {
+    bg: '#473121', // 깊은 고목 갈색
+    foil: '#efe1d0', // 황동박
+    band: '#664731',
+    badgeBg: '#302014',
+    badgeText: '#fef3c7',
+  },
+  기타: {
+    bg: '#5a4d3f', // 린넨 빈티지 레더
+    foil: '#e8dfd5', // 브론즈박
+    band: '#766654',
+    badgeBg: '#3d3429',
+    badgeText: '#f5f5f4',
+  },
+};
+
+const theme = themeMap[type] || themeMap['기타'];
+---
+
+<div
+  class="book-spine-container relative group shrink-0 flex flex-col justify-end items-center select-none"
+  style={`height: 310px; width: ${spineWidth + 6}px;`}
+  data-place-id={place.id}
+>
+  <!-- 7일 이내 최근 방문 책갈피 리본 -->
+  {isRecent && (
+    <div
+      class="absolute -top-3.5 z-10 transition-transform duration-300 group-hover:-translate-y-2"
+      title="최근 7일 이내 다녀온 장소"
+    >
+      <div class="w-3.5 h-6 bg-amber-500 text-[9px] font-bold text-amber-950 flex items-center justify-center shadow-md rounded-t-sm" style="clip-path: polygon(0 0, 100% 0, 100% 80%, 50% 100%, 0 80%);">
+        <Sparkles class="w-2.5 h-2.5" />
+      </div>
+    </div>
+  )}
+
+  <!-- 책등 본체 링크 -->
+  <a
+    href={baseUrl(`/places/${place.id}`)}
+    class="book-spine relative block w-full rounded-t-md transition-all duration-300 ease-out group-hover:-translate-y-4 group-hover:shadow-[0_16px_25px_-5px_rgba(0,0,0,0.5),0_8px_10px_-6px_rgba(0,0,0,0.4)] group-focus:-translate-y-4 focus:outline-none focus:ring-2 focus:ring-amber-400/80 cursor-pointer overflow-hidden"
+    style={`
+      height: ${spineHeight}px;
+      width: ${spineWidth}px;
+      background-color: ${theme.bg};
+      box-shadow: -2px 0 5px rgba(0,0,0,0.35), inset 3px 0 4px rgba(255,255,255,0.22), inset -3px 0 4px rgba(0,0,0,0.45);
+    `}
+    aria-label={`${name} 앨범 펼쳐보기 (방문 ${walkCount}회)`}
+  >
+    <!-- 가죽/천 표면 3D 원통형 하이라이트 & 그림자 오버레이 -->
+    <div
+      class="absolute inset-0 pointer-events-none"
+      style="background: linear-gradient(90deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 22%, rgba(0,0,0,0.08) 65%, rgba(0,0,0,0.38) 100%);"
+    ></div>
+
+    <!-- 책등 상단 금박 띠 (Headband) -->
+    <div class="absolute top-2 left-0 right-0 h-[3px] opacity-75" style={`background-color: ${theme.foil}; box-shadow: 0 1px 0 rgba(0,0,0,0.3);`}></div>
+    <div class="absolute top-3 left-0 right-0 h-[1px] opacity-40" style={`background-color: ${theme.foil};`}></div>
+
+    <!-- 양장본 융기선 (Raised bands) -->
+    <div class="absolute top-[28%] left-0 right-0 h-[2px] opacity-35" style={`background-color: ${theme.band};`}></div>
+    <div class="absolute top-[72%] left-0 right-0 h-[2px] opacity-35" style={`background-color: ${theme.band};`}></div>
+
+    <!-- 책등 내용 (세로쓰기) -->
+    <div class="relative z-1 h-full flex flex-col justify-between items-center py-5 px-1">
+      <!-- 상단 시군구 소형 라벨 -->
+      <span
+        class="text-[9px] font-sans font-medium tracking-tight opacity-80 truncate max-w-full text-center leading-none"
+        style={`color: ${theme.foil};`}
+      >
+        {sigungu.split(' ').pop()}
+      </span>
+
+      <!-- 중앙 세로쓰기 장소명 -->
+      <div class="flex-1 flex items-center justify-center my-2 overflow-hidden">
+        <h3
+          class="writing-vertical font-serif font-bold text-center tracking-[0.16em] line-clamp-1 select-none"
+          style={`
+            color: ${theme.foil};
+            font-size: ${spineWidth >= 52 ? '13px' : '11.5px'};
+            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+          `}
+        >
+          {name}
+        </h3>
+      </div>
+
+      <!-- 하단 권수/장 표시 엠블럼 -->
+      <div class="flex flex-col items-center gap-0.5">
+        <span
+          class="text-[8px] font-sans font-semibold px-1 py-0.5 rounded opacity-90"
+          style={`
+            background-color: ${theme.badgeBg};
+            color: ${theme.badgeText};
+          `}
+        >
+          {walkCount > 0 ? `${walkCount}장` : '기록전'}
+        </span>
+      </div>
+    </div>
+
+    <!-- 책등 하단 금박 띠 (Tailband) -->
+    <div class="absolute bottom-3 left-0 right-0 h-[1px] opacity-40" style={`background-color: ${theme.foil};`}></div>
+    <div class="absolute bottom-2 left-0 right-0 h-[3px] opacity-75" style={`background-color: ${theme.foil}; box-shadow: 0 -1px 0 rgba(0,0,0,0.3);`}></div>
+  </a>
+
+  <!-- 호버 / 포커스 팝업 미리보기 카드 (Tooltip Card) -->
+  <div
+    class="spine-preview-card pointer-events-none absolute bottom-[105%] left-1/2 -translate-x-1/2 w-64 p-3.5 rounded-xl bg-white/95 dark:bg-night-900/95 backdrop-blur-md border border-paper-300 dark:border-night-700 shadow-2xl opacity-0 scale-95 translate-y-2 group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:scale-100 group-focus-within:translate-y-0 transition-all duration-200 z-50 text-left"
+  >
+    <div class="flex items-center justify-between gap-2 mb-1.5">
+      <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md" style={`background-color: ${theme.badgeBg}; color: ${theme.badgeText};`}>
+        {type}
+      </span>
+      <span class="text-[11px] text-ink-500 dark:text-ink-400">
+        {sido} {sigungu}
+      </span>
+    </div>
+
+    <h4 class="font-serif text-base font-bold text-ink-900 dark:text-paper-100 leading-snug">
+      {name}
+    </h4>
+
+    <div class="mt-2.5 pt-2 border-t border-paper-200 dark:border-night-800 space-y-1 text-xs text-ink-600 dark:text-ink-400">
+      <div class="flex items-center gap-1.5">
+        <Footprints class="w-3.5 h-3.5 text-forest-600 dark:text-forest-400 shrink-0" />
+        <span>수록된 산책 기록: <strong>{walkCount}편</strong></span>
+      </div>
+
+      {latestWalk ? (
+        <div class="flex items-center gap-1.5">
+          <Calendar class="w-3.5 h-3.5 text-terracotta-500 shrink-0" />
+          <span>최근 방문: <strong>{formatDateKorean(latestWalk.data.date)}</strong></span>
+        </div>
+      ) : (
+        <span class="text-[11px] text-ink-400 italic">아직 수록된 산책 기록이 없습니다.</span>
+      )}
+    </div>
+
+    {tips && (
+      <p class="mt-2 text-[11px] text-ink-500 dark:text-ink-400 line-clamp-2 leading-relaxed bg-paper-100/60 dark:bg-night-800/60 p-1.5 rounded">
+        💡 {tips}
+      </p>
+    )}
+
+    <div class="mt-2.5 flex items-center justify-end text-[11px] font-semibold text-terracotta-600 dark:text-terracotta-300">
+      <span>앨범 펼치기</span>
+      <ArrowRight class="w-3 h-3 ml-0.5" />
+    </div>
+
+    <!-- 말풍선 꼬리표 -->
+    <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-px w-2.5 h-2.5 bg-white dark:bg-night-900 border-r border-b border-paper-300 dark:border-night-700 rotate-45"></div>
+  </div>
+</div>
+
+<script>
+  import { playBookSlideSound } from '@/lib/sound/library-sounds';
+
+  function attachSpineSounds() {
+    document.querySelectorAll('.book-spine').forEach((spine) => {
+      spine.addEventListener('mouseenter', () => {
+        playBookSlideSound();
+      });
+    });
+  }
+
+  attachSpineSounds();
+  document.addEventListener('astro:after-swap', attachSpineSounds);
+</script>

@@ -1,12 +1,25 @@
 ---
 import { getCollection, render } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import WalkCard from '@/components/walk/WalkCard.astro';
 import PlaceMap from '@/components/map/PlaceMap.astro';
+import ScrapbookGallery from '@/components/album/ScrapbookGallery.astro';
 import Badge from '@/components/ui/Badge.astro';
 import { baseUrl } from '@/lib/utils/url';
+import { formatDateKorean } from '@/lib/utils/date';
 import type { MapPlace } from '@/lib/map/types';
-import { Footprints, ArrowLeft, Lightbulb } from '@lucide/astro';
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  CloudSun,
+  Users,
+  Footprints,
+  Lightbulb,
+  Compass,
+  Bookmark,
+  ExternalLink,
+  BookOpen,
+} from '@lucide/astro';
 
 export async function getStaticPaths() {
   const places = await getCollection('places');
@@ -18,6 +31,10 @@ export async function getStaticPaths() {
 
 const { place } = Astro.props;
 const { name, sido, sigungu, type, facilities, tips } = place.data;
+
+// 전체 장소 맵 (교차 링크용)
+const allPlaces = await getCollection('places');
+const placeLookup = new Map(allPlaces.map((p) => [p.id, p]));
 
 // 지도 컴포넌트용 장소 데이터
 const mapPlace: MapPlace = {
@@ -33,7 +50,7 @@ const mapPlace: MapPlace = {
   hidden: place.data.hidden,
 };
 
-// 이 장소를 방문한 모든 산책 기록 조회
+// 이 장소를 방문한 모든 산책 기록 조회 (최신순)
 const allWalks = await getCollection('walks', ({ data }) => {
   return import.meta.env.PROD ? !data.draft : true;
 });
@@ -43,89 +60,349 @@ const relatedWalks = allWalks.filter((walk) =>
 );
 relatedWalks.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 
-const { Content } = await render(place);
+// 각 산책의 본문 마크다운 렌더링
+const renderedWalks = await Promise.all(
+  relatedWalks.map(async (walk, index) => {
+    const rendered = await render(walk);
+    // 이 산책에서 함께 들른 다른 장소들
+    const companionPlaces = walk.data.places
+      .filter((p) => p.id !== place.id)
+      .map((p) => placeLookup.get(p.id))
+      .filter(Boolean);
+
+    return {
+      walk,
+      chapterNumber: relatedWalks.length - index, // 오래된 순서대로 1장, 2장...
+      renderedContent: rendered.Content,
+      companionPlaces,
+    };
+  })
+);
+
+// 장소 소개 본문 렌더링
+const { Content: PlaceIntro } = await render(place);
+
+// 첫 방문일 & 최근 방문일
+const firstVisit = relatedWalks.length > 0 ? relatedWalks[relatedWalks.length - 1].data.date : null;
+const latestVisit = relatedWalks.length > 0 ? relatedWalks[0].data.date : null;
 ---
 
-<BaseLayout title={name} description={`${sido} ${sigungu}의 ${type} - ${name} 산책 정보`}>
-  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-    <div class="mb-8">
-      <a
-        href={baseUrl('/map')}
-        class="inline-flex items-center gap-1.5 text-xs font-medium text-ink-500 hover:text-terracotta-600 dark:text-ink-400 dark:hover:text-terracotta-100 transition-colors"
-      >
-        <ArrowLeft class="w-3.5 h-3.5" />
-        장소 목록으로 돌아가기
-      </a>
-    </div>
+<BaseLayout
+  title={`${name} 앨범`}
+  description={`${sido} ${sigungu}의 ${type} - ${name}에 깃든 ${relatedWalks.length}번의 발걸음 기록`}
+>
+  <div class="library-sunlight min-h-screen py-8 sm:py-12">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+      <!-- 상단 서가 복귀 네비게이션 -->
+      <div class="mb-6 flex items-center justify-between">
+        <a
+          href={baseUrl('/')}
+          class="inline-flex items-center gap-1.5 text-xs font-serif font-medium text-ink-600 dark:text-ink-400 hover:text-terracotta-600 dark:hover:text-terracotta-200 transition-colors bg-white/70 dark:bg-night-900/70 backdrop-blur px-3 py-1.5 rounded-lg border border-paper-200 dark:border-night-800 shadow-sm"
+        >
+          <ArrowLeft class="w-3.5 h-3.5" />
+          <span>서가로 돌아가기</span>
+        </a>
 
-    <!-- 헤더 -->
-    <header class="mb-8">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-xs font-semibold text-forest-700 dark:text-forest-100 bg-forest-50 dark:bg-night-800 px-2.5 py-1 rounded-md">
-          {type}
-        </span>
-        <span class="text-xs text-ink-400">
-          {sido} {sigungu}
-        </span>
+        <!-- 앨범 권수 표시 배지 -->
+        <div class="inline-flex items-center gap-1.5 text-xs text-ink-500 dark:text-ink-400 font-serif">
+          <BookOpen class="w-3.5 h-3.5 text-wood-600 dark:text-wood-400" />
+          <span>수록된 산책: <strong>{relatedWalks.length}편</strong></span>
+        </div>
       </div>
 
-      <h1 class="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-ink-900 dark:text-paper-100">
-        {name}
-      </h1>
-    </header>
+      <!-- 펼쳐진 앨범 컨테이너 (Open Book Spread Feeling) -->
+      <div class="relative bg-paper-50 dark:bg-night-900/90 rounded-2xl shadow-xl border border-paper-200 dark:border-night-800 overflow-hidden">
+        <!-- 책 상단 바인더/책등 그라데이션 장식 -->
+        <div class="h-3 w-full bg-gradient-to-r from-wood-800 via-wood-700 to-wood-800 border-b border-wood-900/40"></div>
 
-    <!-- 장소 소개 본문 -->
-    <div class="p-6 sm:p-8 rounded-2xl bg-white dark:bg-night-900 border border-paper-200 dark:border-night-800 mb-8 shadow-sm">
-      <div class="prose prose-essay max-w-none text-ink-800 dark:text-paper-200 font-sans mb-6">
-        <Content />
-      </div>
+        <!-- 내부 여백 -->
+        <div class="p-6 sm:p-10 md:p-12">
+          <!-- 앨범 서지 및 장소 표지 섹션 (Front Matter) -->
+          <section id="cover" class="mb-14 pb-12 border-b-2 border-paper-200 dark:border-night-800">
+            <!-- 시군구 & 장소 유형 태그 -->
+            <div class="flex flex-wrap items-center gap-2 mb-4">
+              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-forest-100 text-forest-800 dark:bg-forest-950 dark:text-forest-200">
+                {type}
+              </span>
+              <span class="text-xs font-serif text-ink-500 dark:text-ink-400">
+                {sido} {sigungu}
+              </span>
+            </div>
 
-      <!-- 방문 팁 -->
-      {tips && (
-        <div class="flex items-start gap-3 p-4 rounded-xl bg-paper-100/80 dark:bg-night-800 text-xs sm:text-sm text-ink-700 dark:text-paper-300">
-          <Lightbulb class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <div>
-            <strong class="font-semibold text-ink-900 dark:text-paper-100">산책 팁:</strong> {tips}
+            <!-- 앨범 제목 -->
+            <h1 class="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-ink-900 dark:text-paper-100 leading-tight mb-4">
+              {name}
+            </h1>
+
+            <!-- 앨범 발행 메타 (산책 통계) -->
+            <div class="flex flex-wrap items-center gap-4 text-xs font-serif text-ink-600 dark:text-ink-400 mb-8 bg-paper-100/70 dark:bg-night-800/60 p-3.5 rounded-xl border border-paper-200/80 dark:border-night-700/60">
+              <span class="flex items-center gap-1.5">
+                <Footprints class="w-4 h-4 text-forest-600 dark:text-forest-400" />
+                <span>누적 발걸음: <strong>{relatedWalks.length}회</strong></span>
+              </span>
+              {firstVisit && (
+                <span class="flex items-center gap-1.5">
+                  <Calendar class="w-4 h-4 text-terracotta-500" />
+                  <span>첫 방문: <strong>{formatDateKorean(firstVisit)}</strong></span>
+                </span>
+              )}
+              {latestVisit && firstVisit !== latestVisit && (
+                <span class="flex items-center gap-1.5">
+                  <Bookmark class="w-4 h-4 text-amber-500" />
+                  <span>최근 방문: <strong>{formatDateKorean(latestVisit)}</strong></span>
+                </span>
+              )}
+            </div>
+
+            <!-- 장소 소개 산문 -->
+            <div class="prose prose-essay max-w-none text-ink-800 dark:text-paper-200 mb-8">
+              <PlaceIntro />
+            </div>
+
+            <!-- 산책 팁 -->
+            {tips && (
+              <div class="flex items-start gap-3 p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 text-xs sm:text-sm text-ink-800 dark:text-amber-100 mb-8">
+                <Lightbulb class="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong class="font-semibold text-amber-950 dark:text-amber-200">산책 팁:</strong> {tips}
+                </div>
+              </div>
+            )}
+
+            <!-- 편의시설 태그 -->
+            {facilities && facilities.length > 0 && (
+              <div class="flex flex-wrap items-center gap-1.5 mb-8">
+                <span class="text-xs font-serif text-ink-500 dark:text-ink-400 mr-1">편의 및 시설:</span>
+                {facilities.map((facility) => (
+                  <Badge variant="muted" size="sm">
+                    {facility}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            <!-- 카카오 지도 (액자 프레임) -->
+            <div class="mt-6 rounded-xl overflow-hidden border border-paper-300 dark:border-night-700 shadow-sm">
+              <PlaceMap place={mapPlace} />
+            </div>
+          </section>
+
+          <!-- 책갈피 인덱스 탭 (다회 방문 시 챕터 네비게이션) -->
+          {renderedWalks.length > 1 && (
+            <div class="sticky top-20 z-20 mb-10 py-2 -mx-2 px-2 bg-paper-50/90 dark:bg-night-900/90 backdrop-blur-sm border-b border-paper-200 dark:border-night-800 overflow-x-auto hide-scrollbar flex items-center gap-2">
+              <span class="text-xs font-serif text-ink-400 shrink-0 flex items-center gap-1 mr-1">
+                <Bookmark class="w-3.5 h-3.5 text-amber-500" />
+                책갈피:
+              </span>
+              {renderedWalks.map(({ walk, chapterNumber }) => (
+                <a
+                  href={`#chapter-${walk.id}`}
+                  class="chapter-tab-link shrink-0 text-xs font-serif px-3 py-1.5 rounded-lg bg-white dark:bg-night-800 border border-paper-200 dark:border-night-700 text-ink-700 dark:text-paper-300 hover:text-terracotta-600 dark:hover:text-terracotta-300 hover:border-terracotta-300 transition-colors shadow-xs"
+                >
+                  제{chapterNumber}장 ({walk.data.date.slice(5)})
+                </a>
+              ))}
+            </div>
+          )}
+
+          <!-- 본문: 산책 기록 장(Chapter)들 (최신순) -->
+          <div class="space-y-16">
+            {renderedWalks.length > 0 ? (
+              renderedWalks.map(({ walk, chapterNumber, renderedContent: WalkContent, companionPlaces }) => (
+                <article
+                  id={`chapter-${walk.id}`}
+                  class="chapter-section pt-8 scroll-mt-28 relative"
+                >
+                  {/* 챕터 헤더 (고풍스러운 권두 양식) */}
+                  <div class="mb-6">
+                    <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-paper-200 dark:border-night-800">
+                      {/* 장 번호 및 날짜 */}
+                      <div class="flex items-center gap-2">
+                        <span class="font-serif text-sm font-bold text-terracotta-700 dark:text-terracotta-400 bg-terracotta-50 dark:bg-night-800 px-2 py-0.5 rounded border border-terracotta-200/60 dark:border-terracotta-900/60">
+                          제 {chapterNumber} 장
+                        </span>
+                        <time datetime={walk.data.date} class="font-serif text-sm text-ink-600 dark:text-ink-400">
+                          {formatDateKorean(walk.data.date)}
+                        </time>
+                      </div>
+
+                      {/* 산책 당시 기후/기분 메타 */}
+                      <div class="flex items-center gap-2 text-xs text-ink-500 dark:text-ink-400">
+                        {walk.data.weather && (
+                          <span class="inline-flex items-center gap-1">
+                            <CloudSun class="w-3.5 h-3.5 text-amber-500" />
+                            {walk.data.weather}
+                          </span>
+                        )}
+                        {walk.data.timeOfDay && (
+                          <span class="inline-flex items-center gap-1">
+                            <Clock class="w-3.5 h-3.5 text-ink-400" />
+                            {walk.data.timeOfDay}
+                          </span>
+                        )}
+                        {walk.data.companions && (
+                          <span class="inline-flex items-center gap-1">
+                            <Users class="w-3.5 h-3.5 text-ink-400" />
+                            {walk.data.companions}
+                          </span>
+                        )}
+                        {walk.data.mood && <Badge variant="accent">{walk.data.mood}</Badge>}
+                      </div>
+                    </div>
+
+                    {/* 장 제목 */}
+                    <h2 class="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-ink-900 dark:text-paper-100 mt-4 leading-snug">
+                      {walk.data.title}
+                    </h2>
+                  </div>
+
+                  {/* 에세이 본문 (산문집 감성 조판) */}
+                  <div class="prose prose-essay max-w-none text-ink-800 dark:text-paper-200 my-6">
+                    <WalkContent />
+                  </div>
+
+                  {/* 스크랩북 사진들 (마스킹 테이프 + 손글씨 캡션) */}
+                  <ScrapbookGallery
+                    photoFolder={walk.data.photoFolder}
+                    cover={walk.data.cover}
+                    captions={walk.data.captions}
+                    title={walk.data.title}
+                  />
+
+                  {/* 이 날 함께 들른 다른 장소들 (크로스 앨범 링크) */}
+                  {companionPlaces && companionPlaces.length > 0 && (
+                    <div class="mt-8 p-4 sm:p-5 rounded-xl bg-forest-50/60 dark:bg-forest-950/20 border border-forest-200/70 dark:border-forest-900/50">
+                      <div class="flex items-center gap-1.5 text-xs font-serif font-bold text-forest-800 dark:text-forest-200 mb-2">
+                        <Compass class="w-4 h-4 text-forest-600 dark:text-forest-400" />
+                        <span>이 날 함께 들른 곳의 앨범</span>
+                      </div>
+                      <p class="text-xs text-ink-600 dark:text-ink-400 mb-3">
+                        같은 날 걸음을 나누었던 다른 장소의 책으로 이동할 수 있습니다.
+                      </p>
+                      <div class="flex flex-wrap gap-2">
+                        {companionPlaces.map((comp) => (
+                          comp && (
+                            <a
+                              href={baseUrl(`/places/${comp.id}`)}
+                              class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white dark:bg-night-900 border border-forest-300 dark:border-forest-800 text-xs font-serif text-ink-800 dark:text-paper-200 hover:text-terracotta-600 dark:hover:text-terracotta-300 hover:border-terracotta-300 transition-colors shadow-xs"
+                            >
+                              <span>📖 {comp.data.name}</span>
+                              <span class="text-[10px] text-ink-400">({comp.data.sigungu})</span>
+                              <ExternalLink class="w-3 h-3 text-ink-400" />
+                            </a>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 챕터 구분선 */}
+                  <div class="my-12 flex items-center justify-center">
+                    <div class="h-px bg-paper-200 dark:border-night-800 w-1/3"></div>
+                    <span class="px-3 text-ink-300 dark:text-ink-600 font-serif text-xs">❦</span>
+                    <div class="h-px bg-paper-200 dark:border-night-800 w-1/3"></div>
+                  </div>
+                </article>
+              ))
+            ) : (
+              /* 아직 방문 기록이 없는 경우의 첫 페이지 */
+              <div class="py-16 text-center">
+                <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-paper-200 dark:bg-night-800 flex items-center justify-center text-ink-400">
+                  <BookOpen class="w-6 h-6" />
+                </div>
+                <h3 class="font-serif text-lg font-bold text-ink-800 dark:text-paper-200 mb-2">
+                  아직 첫 장이 꽂히지 않은 빈 앨범입니다
+                </h3>
+                <p class="text-xs sm:text-sm text-ink-500 dark:text-ink-400 max-w-md mx-auto">
+                  이곳을 걷고 산책 일기를 기록하면 서가의 책등이 두터워지며 첫 번째 장(章)이 채워집니다.
+                </p>
+              </div>
+            )}
           </div>
         </div>
-      )}
-
-      <!-- 편의시설 태그 -->
-      {facilities && facilities.length > 0 && (
-        <div class="mt-6 pt-4 border-t border-paper-100 dark:border-night-800 flex flex-wrap items-center gap-1.5">
-          <span class="text-xs text-ink-400 mr-1">시설 및 특징:</span>
-          {facilities.map((facility) => (
-            <Badge variant="muted" size="sm">
-              {facility}
-            </Badge>
-          ))}
-        </div>
-      )}
-    </div>
-
-    <!-- 장소 위치 카카오 지도 -->
-    <div class="mb-10">
-      <PlaceMap place={mapPlace} />
-    </div>
-
-    <!-- 이 장소를 방문한 산책 기록들 -->
-    <section class="mt-12">
-      <div class="flex items-center gap-2 mb-6">
-        <Footprints class="w-5 h-5 text-terracotta-500" />
-        <h2 class="font-serif text-xl font-bold text-ink-900 dark:text-paper-100">
-          이곳을 걸었던 기록들 ({relatedWalks.length}회)
-        </h2>
       </div>
+    </div>
+  </div>
 
-      {relatedWalks.length > 0 ? (
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {relatedWalks.map((walk) => (
-            <WalkCard walk={walk} />
-          ))}
-        </div>
-      ) : (
-        <p class="text-sm text-ink-500 py-6">아직 작성된 산책 기록이 없습니다.</p>
-      )}
-    </section>
+  <!-- 전체 화면 라이트박스 모달 -->
+  <div
+    id="album-lightbox"
+    class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+  >
+    <button
+      id="album-lightbox-close"
+      class="absolute top-4 right-4 p-2 text-white/80 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+      aria-label="닫기"
+    >
+      <span class="text-2xl font-light leading-none">&times;</span>
+    </button>
+
+    <div class="max-w-4xl max-h-[85vh] flex flex-col items-center">
+      <img
+        id="album-lightbox-img"
+        src=""
+        alt=""
+        class="max-h-[75vh] w-auto max-w-full rounded-lg object-contain shadow-2xl"
+      />
+      <p id="album-lightbox-caption" class="mt-4 font-handwriting text-lg text-paper-200 text-center max-w-lg"></p>
+    </div>
   </div>
 </BaseLayout>
+
+<script>
+  import { playPageFlipSound } from '@/lib/sound/library-sounds';
+
+  function setupAlbumInteractions() {
+    // 1. 책갈피 탭 클릭 시 부드러운 스크롤 & 책장 넘김 효과음
+    const tabLinks = document.querySelectorAll('.chapter-tab-link');
+    tabLinks.forEach((link) => {
+      link.addEventListener('click', () => {
+        playPageFlipSound();
+      });
+    });
+
+    // 2. 스크랩북 이미지 라이트박스 연결
+    const modal = document.getElementById('album-lightbox');
+    const closeBtn = document.getElementById('album-lightbox-close');
+    const modalImg = document.getElementById('album-lightbox-img') as HTMLImageElement | null;
+    const modalCaption = document.getElementById('album-lightbox-caption');
+    const buttons = document.querySelectorAll('.scrapbook-img-btn');
+
+    if (!modal || !closeBtn || !modalImg || !modalCaption) return;
+
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const src = btn.getAttribute('data-img-src') || '';
+        const cap = btn.getAttribute('data-caption') || '';
+        modalImg.src = src;
+        modalCaption.textContent = cap;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+      });
+    });
+
+    function closeModal() {
+      modal?.classList.remove('flex');
+      modal?.classList.add('hidden');
+      document.body.style.overflow = '';
+      if (modalImg) modalImg.src = '';
+    }
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal?.classList.contains('hidden')) {
+        closeModal();
+      }
+    });
+  }
+
+  setupAlbumInteractions();
+  document.addEventListener('astro:after-swap', setupAlbumInteractions);
+</script>
