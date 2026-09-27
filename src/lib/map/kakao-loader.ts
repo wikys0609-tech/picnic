@@ -52,10 +52,12 @@ export function loadKakaoSDK(apiKey?: string): Promise<any> {
       return;
     }
 
+    const cleanKey = key.trim().replace(/^["']|["']$/g, '');
+
     const script = document.createElement('script');
     script.id = 'kakao-map-sdk';
     script.type = 'text/javascript';
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false&libraries=services,clusterer`;
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(cleanKey)}&autoload=false&libraries=services,clusterer`;
     script.async = true;
 
     script.onload = () => {
