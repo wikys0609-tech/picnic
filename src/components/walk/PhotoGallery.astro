@@ -16,8 +16,23 @@ const {
   title,
 } = Astro.props;
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 // cover 사진 및 captions에 등록된 사진 목록
-const photoList = cover ? [cover, ...Object.keys(captions).filter((k) => k !== cover)] : Object.keys(captions);
+const rawList = cover ? [cover, ...Object.keys(captions).filter((k) => k !== cover)] : Object.keys(captions);
+
+// 실제 로컬 디렉터리에 존재하는 사진 파일만 선별하여 불필요한 브라우저 404 요청 방지
+const photoList = photoFolder
+  ? rawList.filter((filename) => {
+      try {
+        const localPath = path.join(process.cwd(), 'public', 'photos', photoFolder, filename);
+        return fs.existsSync(localPath);
+      } catch (e) {
+        return false;
+      }
+    })
+  : [];
 ---
 
 {photoFolder && photoList.length > 0 ? (

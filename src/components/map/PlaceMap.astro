@@ -37,7 +37,12 @@ const mapId = `place-map-${Math.random().toString(36).substring(2, 9)}`;
     </div>
   ) : (
     <div class="relative w-full h-[260px] sm:h-[300px] bg-paper-100 dark:bg-night-950">
-      <div id={mapId} class="w-full h-full"></div>
+      <div
+        id={mapId}
+        class="w-full h-full place-map-canvas"
+        data-place={JSON.stringify(place)}
+        data-base-url={baseUrlPrefix}
+      ></div>
 
       <div
         id={`${mapId}-loading`}
@@ -49,14 +54,21 @@ const mapId = `place-map-${Math.random().toString(36).substring(2, 9)}`;
   )}
 </div>
 
-{!place.hidden && (
-  <script define:vars={{ mapId, place, baseUrlPrefix }}>
-    import { KakaoMapAdapter } from '@/lib/map/kakao-adapter';
+<script>
+  import { KakaoMapAdapter } from '@/lib/map/kakao-adapter';
+  import type { MapPlace } from '@/lib/map/types';
 
-    async function initPlaceMap() {
-      const container = document.getElementById(mapId);
+  async function initAllPlaceMaps() {
+    const canvases = document.querySelectorAll<HTMLElement>('.place-map-canvas');
+
+    for (const container of canvases) {
+      const mapId = container.id;
       const loadingEl = document.getElementById(`${mapId}-loading`);
-      if (!container) return;
+      const placeRaw = container.dataset.place;
+      const baseUrlPrefix = container.dataset.baseUrl || '';
+
+      if (!placeRaw) continue;
+      const place: MapPlace = JSON.parse(placeRaw);
 
       try {
         const adapter = new KakaoMapAdapter();
@@ -73,12 +85,8 @@ const mapId = `place-map-${Math.random().toString(36).substring(2, 9)}`;
         }
       }
     }
+  }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initPlaceMap);
-    } else {
-      initPlaceMap();
-    }
-    document.addEventListener('astro:after-swap', initPlaceMap);
-  </script>
-)}
+  initAllPlaceMaps();
+  document.addEventListener('astro:after-swap', initAllPlaceMaps);
+</script>

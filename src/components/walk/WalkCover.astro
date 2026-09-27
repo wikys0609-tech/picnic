@@ -18,8 +18,20 @@ const {
   aspect = 'video',
 } = Astro.props;
 
-// 실제 사진 경로
-const photoSrc = photoFolder ? baseUrl(`/photos/${photoFolder}/${cover}`) : null;
+import fs from 'node:fs';
+import path from 'node:path';
+
+// 실제 로컬 파일이 존재하는지 사전 검사하여 불필요한 브라우저 404 요청 방지
+let photoSrc: string | null = null;
+
+if (photoFolder && cover) {
+  try {
+    const localFilePath = path.join(process.cwd(), 'public', 'photos', photoFolder, cover);
+    if (fs.existsSync(localFilePath)) {
+      photoSrc = baseUrl(`/photos/${photoFolder}/${cover}`);
+    }
+  } catch (e) {}
+}
 
 const aspectClasses = {
   video: 'aspect-[16/10]',

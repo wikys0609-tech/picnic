@@ -58,7 +58,12 @@ const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
 
   <!-- 지도 캔버스 컨테이너 -->
   <div class="relative w-full h-[540px] sm:h-[620px] rounded-2xl overflow-hidden border border-paper-200 dark:border-night-800 shadow-sm bg-paper-100 dark:bg-night-900">
-    <div id="kakao-full-map" class="w-full h-full"></div>
+    <div
+      id="kakao-full-map"
+      class="w-full h-full"
+      data-places={JSON.stringify(places)}
+      data-base-url={baseUrlPrefix}
+    ></div>
 
     <!-- 로딩 스피너 오버레이 -->
     <div
@@ -93,13 +98,16 @@ const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
   </div>
 </div>
 
-<script define:vars={{ places, baseUrlPrefix }}>
+<script>
   import { KakaoMapAdapter } from '@/lib/map/kakao-adapter';
+  import type { MapPlace } from '@/lib/map/types';
 
-  let adapter = null;
+  let adapter: KakaoMapAdapter | null = null;
+  let allPlaces: MapPlace[] = [];
+  let baseUrlPrefix = '';
 
   async function initFullMap() {
-    const container = document.getElementById('kakao-full-map');
+    const container = document.getElementById('kakao-full-map') as HTMLElement | null;
     const loadingEl = document.getElementById('map-loading');
     const errorEl = document.getElementById('map-error');
     const errorMsgEl = document.getElementById('map-error-msg');
@@ -108,12 +116,22 @@ const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
     if (!container) return;
 
     try {
+      const placesRaw = container.dataset.places;
+      baseUrlPrefix = container.dataset.baseUrl || '';
+      allPlaces = placesRaw ? JSON.parse(placesRaw) : [];
+
       loadingEl?.classList.remove('hidden');
       errorEl?.classList.add('hidden');
 
-      adapter = new KakaoMapAdapter();
+      if (!adapter) {
+        adapter = new KakaoMapAdapter();
+      } else {
+        adapter.destroy();
+        adapter = new KakaoMapAdapter();
+      }
+
       await adapter.init(container, { level: 8 });
-      adapter.addPlaceMarkers(places, undefined, baseUrlPrefix);
+      adapter.addPlaceMarkers(allPlaces, undefined, baseUrlPrefix);
 
       loadingEl?.classList.add('hidden');
     } catch (err) {
@@ -126,16 +144,18 @@ const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
       }
     }
 
-    retryBtn?.addEventListener('click', () => {
-      initFullMap();
-    });
+    if (retryBtn) {
+      retryBtn.onclick = () => {
+        initFullMap();
+      };
+    }
 
     setupFilters();
   }
 
   function setupFilters() {
-    const regionButtons = document.querySelectorAll('.region-btn');
-    const searchInput = document.getElementById('map-search-input');
+    const regionButtons = document.querySelectorAll<HTMLButtonElement>('.region-btn');
+    const searchInput = document.getElementById('map-search-input') as HTMLInputElement | null;
 
     let selectedRegion = 'all';
     let searchQuery = '';
@@ -143,7 +163,7 @@ const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
     function filterAndRender() {
       if (!adapter) return;
 
-      const filtered = places.filter((place) => {
+      const filtered = allPlaces.filter((place) => {
         const matchesRegion = selectedRegion === 'all' || place.sido === selectedRegion;
         const matchesSearch =
           searchQuery === '' ||
@@ -155,14 +175,15 @@ const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
       adapter.destroy();
       const container = document.getElementById('kakao-full-map');
       if (container) {
+        adapter = new KakaoMapAdapter();
         adapter.init(container, { level: 8 }).then(() => {
-          adapter.addPlaceMarkers(filtered, undefined, baseUrlPrefix);
+          adapter?.addPlaceMarkers(filtered, undefined, baseUrlPrefix);
         });
       }
     }
 
     regionButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.onclick = () => {
         selectedRegion = btn.dataset.region || 'all';
 
         regionButtons.forEach((b) => {
@@ -174,20 +195,17 @@ const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
         });
 
         filterAndRender();
-      });
+      };
     });
 
-    searchInput?.addEventListener('input', (e) => {
-      searchQuery = e.target.value.trim();
-      filterAndRender();
-    });
+    if (searchInput) {
+      searchInput.oninput = (e: Event) => {
+        searchQuery = (e.target as HTMLInputElement).value.trim();
+        filterAndRender();
+      };
+    }
   }
 
-  // 초기 로드 및 Astro 뷰 트랜지션 지원
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initFullMap);
-  } else {
-    initFullMap();
-  }
+  initFullMap();
   document.addEventListener('astro:after-swap', initFullMap);
 </script>

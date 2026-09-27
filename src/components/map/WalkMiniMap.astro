@@ -48,7 +48,12 @@ const mapId = `walk-mini-map-${Math.random().toString(36).substring(2, 9)}`;
 
   <!-- 지도 캔버스 -->
   <div class="relative w-full h-[280px] sm:h-[340px] bg-paper-100 dark:bg-night-950">
-    <div id={mapId} class="w-full h-full"></div>
+    <div
+      id={mapId}
+      class="w-full h-full walk-mini-map-canvas"
+      data-stops={JSON.stringify(stops)}
+      data-base-url={baseUrlPrefix}
+    ></div>
 
     <!-- 로딩 스피너 -->
     <div
@@ -84,31 +89,36 @@ const mapId = `walk-mini-map-${Math.random().toString(36).substring(2, 9)}`;
   </div>
 </div>
 
-<script define:vars={{ mapId, stops, baseUrlPrefix }}>
+<script>
   import { KakaoMapAdapter } from '@/lib/map/kakao-adapter';
+  import type { CourseStop } from '@/lib/map/types';
 
-  async function initMiniMap() {
-    const container = document.getElementById(mapId);
-    const loadingEl = document.getElementById(`${mapId}-loading`);
-    if (!container) return;
+  async function initAllMiniMaps() {
+    const canvases = document.querySelectorAll<HTMLElement>('.walk-mini-map-canvas');
 
-    try {
-      const adapter = new KakaoMapAdapter();
-      await adapter.init(container, { level: 5 });
-      adapter.addCourseMarkers(stops, baseUrlPrefix);
-      loadingEl?.classList.add('hidden');
-    } catch (err) {
-      console.error('산책 미니맵 로드 실패:', err);
-      if (loadingEl) {
-        loadingEl.innerHTML = '<span class="text-xs text-ink-400">지도를 불러올 수 없습니다.</span>';
+    for (const container of canvases) {
+      const mapId = container.id;
+      const loadingEl = document.getElementById(`${mapId}-loading`);
+      const stopsRaw = container.dataset.stops;
+      const baseUrlPrefix = container.dataset.baseUrl || '';
+
+      if (!stopsRaw) continue;
+      const stops: CourseStop[] = JSON.parse(stopsRaw);
+
+      try {
+        const adapter = new KakaoMapAdapter();
+        await adapter.init(container, { level: 5 });
+        adapter.addCourseMarkers(stops, baseUrlPrefix);
+        loadingEl?.classList.add('hidden');
+      } catch (err) {
+        console.error('산책 미니맵 로드 실패:', err);
+        if (loadingEl) {
+          loadingEl.innerHTML = '<span class="text-xs text-ink-400">지도를 불러올 수 없습니다.</span>';
+        }
       }
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initMiniMap);
-  } else {
-    initMiniMap();
-  }
-  document.addEventListener('astro:after-swap', initMiniMap);
+  initAllMiniMaps();
+  document.addEventListener('astro:after-swap', initAllMiniMaps);
 </script>
