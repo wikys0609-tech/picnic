@@ -108,9 +108,9 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
   <!-- 1. 지역별 서가 뷰 (시·도별 다단 선반) -->
   <div id="shelf-view-region" class="shelf-view space-y-12">
     <!-- 서울 서가 -->
-    <div class="p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
-      <div class="flex items-center justify-between mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800">
-        <div class="flex items-center gap-2">
+    <div class="shelf-card p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
+      <div class="flex items-center justify-between gap-4 mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800 min-h-[36px]">
+        <div class="flex items-center gap-2 shrink-0">
           <span class="w-1.5 h-4 bg-forest-600 rounded-full"></span>
           <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
             서울 서가
@@ -119,9 +119,10 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
             ({seoulPlaces.length}권의 앨범)
           </span>
         </div>
-        <span class="text-xs text-stone-400 dark:text-stone-500 font-sans hidden sm:inline">
-          성동구 · 종로구 · 강북구 · 영등포구
-        </span>
+        <div class="shelf-info-slot text-xs text-stone-400 dark:text-stone-500 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
+          <span class="default-info hidden sm:inline truncate">성동구 · 종로구 · 강북구 · 영등포구</span>
+          <div class="hover-info hidden items-center gap-2 truncate"></div>
+        </div>
       </div>
 
       <!-- 다단 선반 렌더링 -->
@@ -146,9 +147,9 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
     </div>
 
     <!-- 경기 서가 -->
-    <div class="p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
-      <div class="flex items-center justify-between mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800">
-        <div class="flex items-center gap-2">
+    <div class="shelf-card p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
+      <div class="flex items-center justify-between gap-4 mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800 min-h-[36px]">
+        <div class="flex items-center gap-2 shrink-0">
           <span class="w-1.5 h-4 bg-terracotta-600 rounded-full"></span>
           <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
             경기 서가
@@ -157,9 +158,10 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
             ({gyeonggiPlaces.length}권의 앨범)
           </span>
         </div>
-        <span class="text-xs text-stone-400 dark:text-stone-500 font-sans hidden sm:inline">
-          수원시 영통구 · 팔달구 · 고양시 일산동구
-        </span>
+        <div class="shelf-info-slot text-xs text-stone-400 dark:text-stone-500 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
+          <span class="default-info hidden sm:inline truncate">수원시 영통구 · 팔달구 · 고양시 일산동구</span>
+          <div class="hover-info hidden items-center gap-2 truncate"></div>
+        </div>
       </div>
 
       <div class="space-y-10">
@@ -182,9 +184,9 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
     </div>
 
     <!-- 인천 서가 -->
-    <div class="p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
-      <div class="flex items-center justify-between mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800">
-        <div class="flex items-center gap-2">
+    <div class="shelf-card p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
+      <div class="flex items-center justify-between gap-4 mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800 min-h-[36px]">
+        <div class="flex items-center gap-2 shrink-0">
           <span class="w-1.5 h-4 bg-cyan-700 rounded-full"></span>
           <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
             인천 서가
@@ -193,9 +195,10 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
             ({incheonPlaces.length}권의 앨범)
           </span>
         </div>
-        <span class="text-xs text-stone-400 dark:text-stone-500 font-sans hidden sm:inline">
-          연수구 · 제물포구 (2026-07-01 출범 신설 구)
-        </span>
+        <div class="shelf-info-slot text-xs text-stone-400 dark:text-stone-500 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
+          <span class="default-info hidden sm:inline truncate">연수구 · 제물포구 (2026-07-01 출범 신설 구)</span>
+          <div class="hover-info hidden items-center gap-2 truncate"></div>
+        </div>
       </div>
 
       <div class="space-y-10">
@@ -220,16 +223,20 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
 
   <!-- 2. 최근 방문순 뷰 -->
   <div id="shelf-view-recent" class="shelf-view hidden">
-    <div class="p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
-      <div class="flex items-center justify-between mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800">
-        <div class="flex items-center gap-2">
+    <div class="shelf-card p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
+      <div class="flex items-center justify-between gap-4 mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800 min-h-[36px]">
+        <div class="flex items-center gap-2 shrink-0">
           <Clock class="w-4 h-4 text-amber-500" />
           <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
             최근 방문순 서가
           </h3>
           <span class="text-xs text-stone-500 dark:text-stone-400 font-sans">
-            (가장 최근에 다녀온 순서대로 꽂혀 있습니다)
+            ({recentSortedPlaces.length}권의 앨범)
           </span>
+        </div>
+        <div class="shelf-info-slot text-xs text-stone-400 dark:text-stone-500 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
+          <span class="default-info hidden sm:inline truncate">가장 최근에 다녀온 순서대로 꽂혀 있습니다</span>
+          <div class="hover-info hidden items-center gap-2 truncate"></div>
         </div>
       </div>
 
@@ -255,16 +262,20 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
 
   <!-- 3. 두꺼운 책순 (방문 많은 순) 뷰 -->
   <div id="shelf-view-count" class="shelf-view hidden">
-    <div class="p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
-      <div class="flex items-center justify-between mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800">
-        <div class="flex items-center gap-2">
+    <div class="shelf-card p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
+      <div class="flex items-center justify-between gap-4 mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800 min-h-[36px]">
+        <div class="flex items-center gap-2 shrink-0">
           <Flame class="w-4 h-4 text-terracotta-500" />
           <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
             두꺼운 앨범순 서가
           </h3>
           <span class="text-xs text-stone-500 dark:text-stone-400 font-sans">
-            (자주 찾아가 장(章)이 많이 쌓인 두꺼운 책부터 진열됩니다)
+            ({countSortedPlaces.length}권의 앨범)
           </span>
+        </div>
+        <div class="shelf-info-slot text-xs text-stone-400 dark:text-stone-500 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
+          <span class="default-info hidden sm:inline truncate">자주 찾아가 장(章)이 많이 쌓인 두꺼운 책부터 진열됩니다</span>
+          <div class="hover-info hidden items-center gap-2 truncate"></div>
         </div>
       </div>
 
@@ -319,6 +330,81 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
     });
   }
 
-  setupBookshelfControls();
-  document.addEventListener('astro:after-swap', setupBookshelfControls);
+  function setupShelfHoverInfo() {
+    const shelfCards = document.querySelectorAll<HTMLElement>('.shelf-card');
+
+    shelfCards.forEach((card) => {
+      const defaultInfo = card.querySelector<HTMLElement>('.default-info');
+      const hoverInfo = card.querySelector<HTMLElement>('.hover-info');
+      if (!defaultInfo || !hoverInfo) return;
+
+      const books = card.querySelectorAll<HTMLElement>('.book-spine');
+      let resetTimer: number | null = null;
+
+      const clearTimer = () => {
+        if (resetTimer !== null) {
+          clearTimeout(resetTimer);
+          resetTimer = null;
+        }
+      };
+
+      const setHoverContent = (book: HTMLElement) => {
+        clearTimer();
+        const name = book.dataset.placeName || '';
+        const type = book.dataset.placeType || '';
+        const sigungu = book.dataset.placeSigungu || '';
+        const walkCount = book.dataset.walkCount || '0';
+        const latestDate = book.dataset.latestDate || '';
+        const typeBg = book.dataset.typeBg || '#243C2E';
+
+        const sigunguShort = sigungu.split(' ').pop() || '';
+
+        hoverInfo.innerHTML = `
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold text-white tracking-wider shrink-0" style="background-color: ${typeBg}">
+            ${type}
+          </span>
+          <strong class="font-serif font-bold text-stone-900 dark:text-paper-100 text-xs sm:text-sm shrink-0">
+            ${name}
+          </strong>
+          <span class="text-stone-400 dark:text-stone-500 font-sans text-[11px] shrink-0">(${sigunguShort})</span>
+          <span class="text-stone-300 dark:text-stone-700 hidden md:inline">·</span>
+          <span class="font-sans text-stone-600 dark:text-stone-300 text-xs hidden md:inline">수록 산책 ${walkCount}편</span>
+          ${latestDate ? `<span class="text-stone-300 dark:text-stone-700 hidden lg:inline">·</span><span class="font-sans text-stone-500 dark:text-stone-400 text-xs hidden lg:inline">최근 ${latestDate}</span>` : ''}
+          <span class="text-forest-700 dark:text-forest-400 font-semibold font-serif text-xs ml-1 shrink-0 flex items-center">
+            펼쳐보기 →
+          </span>
+        `;
+
+        defaultInfo.classList.add('hidden');
+        hoverInfo.classList.remove('hidden');
+        hoverInfo.classList.add('flex');
+      };
+
+      const resetToDefault = () => {
+        clearTimer();
+        resetTimer = window.setTimeout(() => {
+          hoverInfo.classList.add('hidden');
+          hoverInfo.classList.remove('flex');
+          defaultInfo.classList.remove('hidden');
+        }, 120);
+      };
+
+      books.forEach((book) => {
+        book.addEventListener('mouseenter', () => setHoverContent(book));
+        book.addEventListener('focus', () => setHoverContent(book));
+        book.addEventListener('mouseleave', resetToDefault);
+        book.addEventListener('blur', resetToDefault);
+      });
+
+      card.addEventListener('mouseleave', resetToDefault);
+    });
+  }
+
+  function initBookshelf() {
+    setupBookshelfControls();
+    setupShelfHoverInfo();
+  }
+
+  initBookshelf();
+  document.addEventListener('astro:after-swap', initBookshelf);
 </script>

@@ -2,7 +2,6 @@
 import type { CollectionEntry } from 'astro:content';
 import { baseUrl } from '@/lib/utils/url';
 import { formatDateKorean } from '@/lib/utils/date';
-import { ArrowRight, Footprints, Calendar } from '@lucide/astro';
 
 interface Props {
   place: CollectionEntry<'places'>;
@@ -10,7 +9,7 @@ interface Props {
 }
 
 const { place, walks } = Astro.props;
-const { name, sido, sigungu, type, tips } = place.data;
+const { name, sido, sigungu, type } = place.data;
 
 const walkCount = walks.length;
 const latestWalk = walks.length > 0 ? walks[0] : null;
@@ -109,6 +108,14 @@ const theme = themeMap[type] || themeMap['기타'];
         inset -3px 0 5px rgba(0, 0, 0, 0.45),
         -5px 6px 14px rgba(0, 0, 0, 0.35);
     `}
+    data-place-id={place.id}
+    data-place-name={name}
+    data-place-type={type}
+    data-place-sigungu={sigungu}
+    data-place-sido={sido}
+    data-walk-count={walkCount}
+    data-latest-date={latestWalk ? formatDateKorean(latestWalk.data.date) : ''}
+    data-type-bg={theme.accent}
     aria-label={`${name} 앨범 펼쳐보기 (${walkCount}편 수록)`}
   >
     <!-- 3D 둥근 책등 실린더 하이라이트 & 림라이트 오버레이 -->
@@ -164,54 +171,6 @@ const theme = themeMap[type] || themeMap['기타'];
 
   <!-- 책 바닥 선반 접촉 그림자 (Contact Shadow) -->
   <div class="absolute -bottom-1 left-1 right-1 h-2 bg-black/45 dark:bg-black/80 blur-xs rounded-full pointer-events-none group-hover:scale-75 group-hover:opacity-40 transition-all duration-300"></div>
-
-  <!-- 모던 글래스모피즘 프리뷰 툴팁 카드 -->
-  <div
-    class="pointer-events-none absolute bottom-[104%] left-1/2 -translate-x-1/2 w-64 p-4 rounded-xl bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border border-paper-300 dark:border-stone-700 shadow-[0_16px_36px_rgba(0,0,0,0.25)] opacity-0 scale-95 translate-y-2 group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:scale-100 group-focus-within:translate-y-0 transition-all duration-200 z-50 text-left"
-  >
-    <div class="flex items-center justify-between text-[11px] mb-1.5">
-      <span class="font-semibold px-2 py-0.5 rounded-xs" style={`background-color: ${theme.accent}; color: #FFFFFF;`}>
-        {type}
-      </span>
-      <span class="text-stone-500 dark:text-stone-400 font-sans">
-        {sido} {sigungu}
-      </span>
-    </div>
-
-    <h4 class="font-serif text-base font-bold text-stone-900 dark:text-paper-100 leading-snug">
-      {name}
-    </h4>
-
-    <div class="mt-2.5 pt-2 border-t border-paper-200 dark:border-stone-800 space-y-1 text-xs text-stone-600 dark:text-stone-300">
-      <div class="flex items-center gap-1.5">
-        <Footprints class="w-3.5 h-3.5 text-forest-600 dark:text-forest-400 shrink-0" />
-        <span>수록된 산책 기록: <strong>{walkCount}편</strong></span>
-      </div>
-
-      {latestWalk ? (
-        <div class="flex items-center gap-1.5">
-          <Calendar class="w-3.5 h-3.5 text-terracotta-600 dark:text-terracotta-400 shrink-0" />
-          <span>최근 방문: <strong>{formatDateKorean(latestWalk.data.date)}</strong></span>
-        </div>
-      ) : (
-        <span class="text-[11px] text-stone-400 italic">아직 수록된 산책이 없습니다.</span>
-      )}
-    </div>
-
-    {tips && (
-      <p class="mt-2 text-[11px] text-stone-600 dark:text-stone-400 line-clamp-2 leading-relaxed bg-paper-100/70 dark:bg-stone-800/60 p-2 rounded">
-        💡 {tips}
-      </p>
-    )}
-
-    <div class="mt-3 flex items-center justify-end text-[11px] font-semibold text-terracotta-700 dark:text-terracotta-300">
-      <span>앨범 펼쳐보기</span>
-      <ArrowRight class="w-3 h-3 ml-0.5" />
-    </div>
-
-    <!-- 말풍선 꼬리표 -->
-    <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-px w-2.5 h-2.5 bg-white dark:bg-stone-900 border-r border-b border-paper-300 dark:border-stone-700 rotate-45"></div>
-  </div>
 </div>
 
 <script>
