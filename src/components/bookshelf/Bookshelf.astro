@@ -1,7 +1,7 @@
 ---
 import type { CollectionEntry } from 'astro:content';
 import BookSpine from './BookSpine.astro';
-import { BookOpen, MapPin, Flame, Clock } from '@lucide/astro';
+import { MapPin, Flame, Clock } from '@lucide/astro';
 
 interface Props {
   places: CollectionEntry<'places'>[];
@@ -10,7 +10,6 @@ interface Props {
 
 const { places, walks } = Astro.props;
 
-// 각 장소별 산책 기록 매핑 및 최신순 정렬
 interface PlaceWithWalks {
   place: CollectionEntry<'places'>;
   walks: CollectionEntry<'walks'>[];
@@ -41,247 +40,285 @@ const recentSortedPlaces = [...placesWithWalks].sort(
   (a, b) => new Date(b.latestDate).getTime() - new Date(a.latestDate).getTime()
 );
 
-// 정렬 목록: 방문 많은 순
+// 정렬 목록: 방문 많은 순 (두꺼운 책)
 const countSortedPlaces = [...placesWithWalks].sort((a, b) => b.walkCount - a.walkCount);
+
+// 한 선반당 수용 권수 (데스크톱 기준 8~10권, 넘칠 경우 자동 다단 분할)
+function chunkShelfTiers(items: PlaceWithWalks[], maxPerTier: number = 8): PlaceWithWalks[][] {
+  const tiers: PlaceWithWalks[][] = [];
+  for (let i = 0; i < items.length; i += maxPerTier) {
+    tiers.push(items.slice(i, i + maxPerTier));
+  }
+  return tiers.length > 0 ? tiers : [[]];
+}
+
+const seoulTiers = chunkShelfTiers(seoulPlaces, 8);
+const gyeonggiTiers = chunkShelfTiers(gyeonggiPlaces, 8);
+const incheonTiers = chunkShelfTiers(incheonPlaces, 8);
+const recentTiers = chunkShelfTiers(recentSortedPlaces, 8);
+const countTiers = chunkShelfTiers(countSortedPlaces, 8);
 ---
 
-<div class="bookshelf-system w-full" id="bookshelf-section">
-  <!-- 서가 제어 바 (정렬 전환 탭) -->
-  <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
-    <div class="flex items-center gap-2">
-      <div class="w-8 h-8 rounded-lg bg-wood-700 text-wood-100 flex items-center justify-center shadow-inner">
-        <BookOpen class="w-4 h-4" />
-      </div>
-      <div>
-        <h2 class="font-serif text-xl sm:text-2xl font-bold text-ink-900 dark:text-paper-100">
-          도서관 서가
+<div class="bookshelf-section w-full relative z-10" id="bookshelf-container">
+  <!-- 상단 제어 바: 세련된 에디토리얼 글래스 패널 -->
+  <div class="p-5 sm:p-6 rounded-2xl bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+    <div>
+      <div class="flex items-center gap-2 mb-1">
+        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+        <h2 class="font-serif text-xl sm:text-2xl font-bold tracking-tight text-stone-900 dark:text-paper-100">
+          산책 도서관 서가
         </h2>
-        <p class="text-xs text-ink-500 dark:text-ink-400">
-          책 한 권은 다녀온 장소 한 곳의 앨범입니다. 책을 골라 펼쳐보세요.
-        </p>
       </div>
+      <p class="text-xs text-stone-600 dark:text-stone-400 font-sans">
+        책 1권은 다녀온 장소 1곳의 앨범입니다. 책을 골라 펼쳐보세요. (총 {places.length}권의 앨범 꽂힘)
+      </p>
     </div>
 
     <!-- 정렬 탭 버튼 -->
-    <div class="inline-flex p-1 rounded-xl bg-paper-200/80 dark:bg-night-900 border border-paper-300 dark:border-night-800 text-xs font-medium">
+    <div class="inline-flex p-1 rounded-xl bg-stone-100/90 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-xs font-serif font-medium shrink-0">
       <button
         type="button"
-        class="shelf-tab-btn active px-3 py-1.5 rounded-lg transition-all text-terracotta-700 dark:text-terracotta-200 font-semibold bg-white dark:bg-night-800 shadow-sm flex items-center gap-1.5"
+        class="shelf-tab-btn active px-3.5 py-1.5 rounded-lg transition-all text-stone-900 dark:text-paper-100 font-bold bg-white dark:bg-stone-700 shadow-xs flex items-center gap-1.5"
         data-view="region"
       >
-        <MapPin class="w-3.5 h-3.5" />
+        <MapPin class="w-3.5 h-3.5 text-forest-600 dark:text-forest-400" />
         지역별 서가
       </button>
 
       <button
         type="button"
-        class="shelf-tab-btn px-3 py-1.5 rounded-lg transition-all text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-paper-100 flex items-center gap-1.5"
+        class="shelf-tab-btn px-3.5 py-1.5 rounded-lg transition-all text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 flex items-center gap-1.5"
         data-view="recent"
       >
-        <Clock class="w-3.5 h-3.5" />
+        <Clock class="w-3.5 h-3.5 text-amber-500" />
         최근 방문순
       </button>
 
       <button
         type="button"
-        class="shelf-tab-btn px-3 py-1.5 rounded-lg transition-all text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-paper-100 flex items-center gap-1.5"
+        class="shelf-tab-btn px-3.5 py-1.5 rounded-lg transition-all text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 flex items-center gap-1.5"
         data-view="count"
       >
-        <Flame class="w-3.5 h-3.5" />
-        두꺼운 책순
+        <Flame class="w-3.5 h-3.5 text-terracotta-500" />
+        두꺼운 앨범순
       </button>
     </div>
   </div>
 
-  <!-- 1. 지역별 서가 뷰 (시·도별 3단 선반) -->
+  <!-- 1. 지역별 서가 뷰 (시·도별 다단 선반) -->
   <div id="shelf-view-region" class="shelf-view space-y-12">
-    <!-- 서울 서가 칸 -->
-    <div class="relative bg-paper-100/50 dark:bg-night-900/50 rounded-2xl p-4 sm:p-6 border border-paper-200/80 dark:border-night-800/80">
-      <!-- 황동 명판 라벨 -->
-      <div class="flex items-center justify-between mb-4">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-wood-800 text-amber-200 text-xs font-serif shadow-md border border-amber-500/30">
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-          <span>서울 서가 ({seoulPlaces.length}권)</span>
+    <!-- 서울 서가 -->
+    <div class="p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
+      <div class="flex items-center justify-between mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800">
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-4 bg-forest-600 rounded-full"></span>
+          <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
+            서울 서가
+          </h3>
+          <span class="text-xs text-stone-500 dark:text-stone-400 font-sans">
+            ({seoulPlaces.length}권의 앨범)
+          </span>
         </div>
-        <span class="text-[11px] text-ink-400">성동구 · 종로구 · 강북구 · 영등포구</span>
+        <span class="text-xs text-stone-400 dark:text-stone-500 font-sans hidden sm:inline">
+          성동구 · 종로구 · 강북구 · 영등포구
+        </span>
       </div>
 
-      <!-- 책꽂이 열 (가로 스크롤 가능) -->
-      <div class="relative overflow-x-auto hide-scrollbar pt-8 pb-0">
-        <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
-          <!-- 좌측 북엔드 (황동 앤틱 장식) -->
-          <div class="w-7 h-44 rounded-l-md bg-gradient-to-r from-amber-800 to-amber-700 border-l border-amber-400/40 shadow-md flex items-center justify-center shrink-0 opacity-85">
-            <span class="writing-vertical text-[9px] font-serif text-amber-200 tracking-widest">소풍</span>
+      <!-- 다단 선반 렌더링 -->
+      <div class="space-y-10">
+        {seoulTiers.map((tier, tierIndex) => (
+          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-6 pb-0">
+            {seoulTiers.length > 1 && (
+              <span class="absolute top-0 left-2 text-[10px] font-sans font-medium text-stone-400">
+                제 {tierIndex + 1} 단
+              </span>
+            )}
+            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
+              {tier.map(({ place, walks }) => (
+                <BookSpine place={place} walks={walks} />
+              ))}
+            </div>
+            <!-- 캔틸레버 플로팅 선반 바닥 -->
+            <div class="cantilever-shelf h-3.5 w-full rounded-xs mt-0"></div>
           </div>
-
-          <!-- 책등 목록 -->
-          {seoulPlaces.map(({ place, walks }) => (
-            <BookSpine place={place} walks={walks} />
-          ))}
-
-          <!-- 우측 북엔드 (빈자리 감싸기) -->
-          <div class="w-8 h-36 rounded-r-md bg-gradient-to-l from-amber-900 to-amber-800 border-r border-amber-400/30 shadow-md flex items-center justify-center shrink-0 opacity-80 ml-2">
-            <span class="writing-vertical text-[9px] font-serif text-amber-300/80">SEOUL</span>
-          </div>
-        </div>
-
-        <!-- 원목 선반 바닥 -->
-        <div class="shelf-board h-5 w-full rounded-sm mt-0 shadow-lg"></div>
-      </div>
-    </div>
-
-    <!-- 경기 서가 칸 -->
-    <div class="relative bg-paper-100/50 dark:bg-night-900/50 rounded-2xl p-4 sm:p-6 border border-paper-200/80 dark:border-night-800/80">
-      <div class="flex items-center justify-between mb-4">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-wood-800 text-amber-200 text-xs font-serif shadow-md border border-amber-500/30">
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-          <span>경기 서가 ({gyeonggiPlaces.length}권)</span>
-        </div>
-        <span class="text-[11px] text-ink-400">수원시 영통구 · 팔달구 · 고양시 일산동구</span>
-      </div>
-
-      <div class="relative overflow-x-auto hide-scrollbar pt-8 pb-0">
-        <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
-          <div class="w-7 h-44 rounded-l-md bg-gradient-to-r from-amber-800 to-amber-700 border-l border-amber-400/40 shadow-md flex items-center justify-center shrink-0 opacity-85">
-            <span class="writing-vertical text-[9px] font-serif text-amber-200 tracking-widest">소풍</span>
-          </div>
-
-          {gyeonggiPlaces.map(({ place, walks }) => (
-            <BookSpine place={place} walks={walks} />
-          ))}
-
-          <div class="w-8 h-36 rounded-r-md bg-gradient-to-l from-amber-900 to-amber-800 border-r border-amber-400/30 shadow-md flex items-center justify-center shrink-0 opacity-80 ml-2">
-            <span class="writing-vertical text-[9px] font-serif text-amber-300/80">GYEONGGI</span>
-          </div>
-        </div>
-
-        <div class="shelf-board h-5 w-full rounded-sm mt-0 shadow-lg"></div>
+        ))}
       </div>
     </div>
 
-    <!-- 인천 서가 칸 -->
-    <div class="relative bg-paper-100/50 dark:bg-night-900/50 rounded-2xl p-4 sm:p-6 border border-paper-200/80 dark:border-night-800/80">
-      <div class="flex items-center justify-between mb-4">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-wood-800 text-amber-200 text-xs font-serif shadow-md border border-amber-500/30">
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-          <span>인천 서가 ({incheonPlaces.length}권)</span>
+    <!-- 경기 서가 -->
+    <div class="p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
+      <div class="flex items-center justify-between mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800">
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-4 bg-terracotta-600 rounded-full"></span>
+          <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
+            경기 서가
+          </h3>
+          <span class="text-xs text-stone-500 dark:text-stone-400 font-sans">
+            ({gyeonggiPlaces.length}권의 앨범)
+          </span>
         </div>
-        <span class="text-[11px] text-ink-400">연수구 · 제물포구 (2026 개편 신설)</span>
+        <span class="text-xs text-stone-400 dark:text-stone-500 font-sans hidden sm:inline">
+          수원시 영통구 · 팔달구 · 고양시 일산동구
+        </span>
       </div>
 
-      <div class="relative overflow-x-auto hide-scrollbar pt-8 pb-0">
-        <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
-          <div class="w-7 h-44 rounded-l-md bg-gradient-to-r from-amber-800 to-amber-700 border-l border-amber-400/40 shadow-md flex items-center justify-center shrink-0 opacity-85">
-            <span class="writing-vertical text-[9px] font-serif text-amber-200 tracking-widest">소풍</span>
+      <div class="space-y-10">
+        {gyeonggiTiers.map((tier, tierIndex) => (
+          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-6 pb-0">
+            {gyeonggiTiers.length > 1 && (
+              <span class="absolute top-0 left-2 text-[10px] font-sans font-medium text-stone-400">
+                제 {tierIndex + 1} 단
+              </span>
+            )}
+            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
+              {tier.map(({ place, walks }) => (
+                <BookSpine place={place} walks={walks} />
+              ))}
+            </div>
+            <div class="cantilever-shelf h-3.5 w-full rounded-xs mt-0"></div>
           </div>
+        ))}
+      </div>
+    </div>
 
-          {incheonPlaces.map(({ place, walks }) => (
-            <BookSpine place={place} walks={walks} />
-          ))}
-
-          <div class="w-8 h-36 rounded-r-md bg-gradient-to-l from-amber-900 to-amber-800 border-r border-amber-400/30 shadow-md flex items-center justify-center shrink-0 opacity-80 ml-2">
-            <span class="writing-vertical text-[9px] font-serif text-amber-300/80">INCHEON</span>
-          </div>
+    <!-- 인천 서가 -->
+    <div class="p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
+      <div class="flex items-center justify-between mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800">
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-4 bg-cyan-700 rounded-full"></span>
+          <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
+            인천 서가
+          </h3>
+          <span class="text-xs text-stone-500 dark:text-stone-400 font-sans">
+            ({incheonPlaces.length}권의 앨범)
+          </span>
         </div>
+        <span class="text-xs text-stone-400 dark:text-stone-500 font-sans hidden sm:inline">
+          연수구 · 제물포구 (2026-07-01 출범 신설 구)
+        </span>
+      </div>
 
-        <div class="shelf-board h-5 w-full rounded-sm mt-0 shadow-lg"></div>
+      <div class="space-y-10">
+        {incheonTiers.map((tier, tierIndex) => (
+          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-6 pb-0">
+            {incheonTiers.length > 1 && (
+              <span class="absolute top-0 left-2 text-[10px] font-sans font-medium text-stone-400">
+                제 {tierIndex + 1} 단
+              </span>
+            )}
+            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
+              {tier.map(({ place, walks }) => (
+                <BookSpine place={place} walks={walks} />
+              ))}
+            </div>
+            <div class="cantilever-shelf h-3.5 w-full rounded-xs mt-0"></div>
+          </div>
+        ))}
       </div>
     </div>
   </div>
 
-  <!-- 2. 최근 방문순 단일 서가 뷰 -->
+  <!-- 2. 최근 방문순 뷰 -->
   <div id="shelf-view-recent" class="shelf-view hidden">
-    <div class="relative bg-paper-100/50 dark:bg-night-900/50 rounded-2xl p-4 sm:p-6 border border-paper-200/80 dark:border-night-800/80">
-      <div class="flex items-center justify-between mb-4">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-wood-800 text-amber-200 text-xs font-serif shadow-md border border-amber-500/30">
-          <Clock class="w-3.5 h-3.5 text-amber-400" />
-          <span>최근에 다녀온 순서대로 정렬된 서가 ({recentSortedPlaces.length}권)</span>
+    <div class="p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
+      <div class="flex items-center justify-between mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800">
+        <div class="flex items-center gap-2">
+          <Clock class="w-4 h-4 text-amber-500" />
+          <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
+            최근 방문순 서가
+          </h3>
+          <span class="text-xs text-stone-500 dark:text-stone-400 font-sans">
+            (가장 최근에 다녀온 순서대로 꽂혀 있습니다)
+          </span>
         </div>
-        <span class="text-[11px] text-ink-400">최신 산책일 순</span>
       </div>
 
-      <div class="relative overflow-x-auto hide-scrollbar pt-8 pb-0">
-        <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
-          <div class="w-7 h-44 rounded-l-md bg-gradient-to-r from-amber-800 to-amber-700 border-l border-amber-400/40 shadow-md flex items-center justify-center shrink-0 opacity-85">
-            <span class="writing-vertical text-[9px] font-serif text-amber-200 tracking-widest">최신</span>
+      <div class="space-y-10">
+        {recentTiers.map((tier, tierIndex) => (
+          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-6 pb-0">
+            {recentTiers.length > 1 && (
+              <span class="absolute top-0 left-2 text-[10px] font-sans font-medium text-stone-400">
+                제 {tierIndex + 1} 단
+              </span>
+            )}
+            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
+              {tier.map(({ place, walks }) => (
+                <BookSpine place={place} walks={walks} />
+              ))}
+            </div>
+            <div class="cantilever-shelf h-3.5 w-full rounded-xs mt-0"></div>
           </div>
-
-          {recentSortedPlaces.map(({ place, walks }) => (
-            <BookSpine place={place} walks={walks} />
-          ))}
-
-          <div class="w-8 h-36 rounded-r-md bg-gradient-to-l from-amber-900 to-amber-800 border-r border-amber-400/30 shadow-md flex items-center justify-center shrink-0 opacity-80 ml-2">
-            <span class="writing-vertical text-[9px] font-serif text-amber-300/80">PAST</span>
-          </div>
-        </div>
-
-        <div class="shelf-board h-5 w-full rounded-sm mt-0 shadow-lg"></div>
+        ))}
       </div>
     </div>
   </div>
 
-  <!-- 3. 방문 많은 순 (두꺼운 책) 뷰 -->
+  <!-- 3. 두꺼운 책순 (방문 많은 순) 뷰 -->
   <div id="shelf-view-count" class="shelf-view hidden">
-    <div class="relative bg-paper-100/50 dark:bg-night-900/50 rounded-2xl p-4 sm:p-6 border border-paper-200/80 dark:border-night-800/80">
-      <div class="flex items-center justify-between mb-4">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-wood-800 text-amber-200 text-xs font-serif shadow-md border border-amber-500/30">
-          <Flame class="w-3.5 h-3.5 text-amber-400" />
-          <span>발걸음이 잦았던 두꺼운 앨범순 ({countSortedPlaces.length}권)</span>
+    <div class="p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
+      <div class="flex items-center justify-between mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800">
+        <div class="flex items-center gap-2">
+          <Flame class="w-4 h-4 text-terracotta-500" />
+          <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
+            두꺼운 앨범순 서가
+          </h3>
+          <span class="text-xs text-stone-500 dark:text-stone-400 font-sans">
+            (자주 찾아가 장(章)이 많이 쌓인 두꺼운 책부터 진열됩니다)
+          </span>
         </div>
-        <span class="text-[11px] text-ink-400">누적 방문 횟수 순</span>
       </div>
 
-      <div class="relative overflow-x-auto hide-scrollbar pt-8 pb-0">
-        <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
-          <div class="w-7 h-44 rounded-l-md bg-gradient-to-r from-amber-800 to-amber-700 border-l border-amber-400/40 shadow-md flex items-center justify-center shrink-0 opacity-85">
-            <span class="writing-vertical text-[9px] font-serif text-amber-200 tracking-widest">기록</span>
+      <div class="space-y-10">
+        {countTiers.map((tier, tierIndex) => (
+          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-6 pb-0">
+            {countTiers.length > 1 && (
+              <span class="absolute top-0 left-2 text-[10px] font-sans font-medium text-stone-400">
+                제 {tierIndex + 1} 단
+              </span>
+            )}
+            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
+              {tier.map(({ place, walks }) => (
+                <BookSpine place={place} walks={walks} />
+              ))}
+            </div>
+            <div class="cantilever-shelf h-3.5 w-full rounded-xs mt-0"></div>
           </div>
-
-          {countSortedPlaces.map(({ place, walks }) => (
-            <BookSpine place={place} walks={walks} />
-          ))}
-
-          <div class="w-8 h-36 rounded-r-md bg-gradient-to-l from-amber-900 to-amber-800 border-r border-amber-400/30 shadow-md flex items-center justify-center shrink-0 opacity-80 ml-2">
-            <span class="writing-vertical text-[9px] font-serif text-amber-300/80">TOME</span>
-          </div>
-        </div>
-
-        <div class="shelf-board h-5 w-full rounded-sm mt-0 shadow-lg"></div>
+        ))}
       </div>
     </div>
   </div>
 </div>
 
 <script>
-  function setupShelfTabs() {
-    const buttons = document.querySelectorAll<HTMLButtonElement>('.shelf-tab-btn');
-    const views = document.querySelectorAll<HTMLDivElement>('.shelf-view');
+  function setupBookshelfControls() {
+    const tabButtons = document.querySelectorAll<HTMLButtonElement>('.shelf-tab-btn');
+    const viewContainers = document.querySelectorAll<HTMLDivElement>('.shelf-view');
 
-    buttons.forEach((btn) => {
+    tabButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
-        const targetView = btn.getAttribute('data-view');
+        const targetView = btn.dataset.view;
         if (!targetView) return;
 
-        // 버튼 스타일 전환
-        buttons.forEach((b) => {
-          b.classList.remove('active', 'text-terracotta-700', 'dark:text-terracotta-200', 'font-semibold', 'bg-white', 'dark:bg-night-800', 'shadow-sm');
-          b.classList.add('text-ink-600', 'dark:text-ink-400');
+        // 버튼 스타일 토글
+        tabButtons.forEach((b) => {
+          b.classList.remove('active', 'text-stone-900', 'dark:text-paper-100', 'font-bold', 'bg-white', 'dark:bg-stone-700', 'shadow-xs');
+          b.classList.add('text-stone-600', 'dark:text-stone-400');
         });
 
-        btn.classList.add('active', 'text-terracotta-700', 'dark:text-terracotta-200', 'font-semibold', 'bg-white', 'dark:bg-night-800', 'shadow-sm');
-        btn.classList.remove('text-ink-600', 'dark:text-ink-400');
+        btn.classList.add('active', 'text-stone-900', 'dark:text-paper-100', 'font-bold', 'bg-white', 'dark:bg-stone-700', 'shadow-xs');
+        btn.classList.remove('text-stone-600', 'dark:text-stone-400');
 
-        // 뷰 전환
-        views.forEach((view) => {
-          view.classList.add('hidden');
+        // 뷰 컨테이너 토글
+        viewContainers.forEach((container) => {
+          container.classList.add('hidden');
         });
 
-        const activeView = document.getElementById(`shelf-view-${targetView}`);
-        activeView?.classList.remove('hidden');
+        const activeContainer = document.getElementById(`shelf-view-${targetView}`);
+        activeContainer?.classList.remove('hidden');
       });
     });
   }
 
-  setupShelfTabs();
-  document.addEventListener('astro:after-swap', setupShelfTabs);
+  setupBookshelfControls();
+  document.addEventListener('astro:after-swap', setupBookshelfControls);
 </script>

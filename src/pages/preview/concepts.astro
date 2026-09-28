@@ -1,0 +1,717 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { baseUrl } from '@/lib/utils/url';
+import { Sparkles, ArrowRight, Eye, Layers, Palette, Type } from '@lucide/astro';
+
+const allPlaces = await getCollection('places');
+const allWalks = await getCollection('walks', ({ data }) => {
+  return import.meta.env.PROD ? !data.draft : true;
+});
+
+// 각 장소별 산책 기록 매핑
+const placesWithWalks = allPlaces.map((place) => {
+  const related = allWalks.filter((w) => w.data.places.some((p) => p.id === place.id));
+  return {
+    place,
+    walks: related,
+    walkCount: related.length,
+    latestDate: related.length > 0 ? related[0].data.date : null,
+  };
+});
+
+// 장소 유형별 세련된 채도 낮춘 자연의 색상 (스타일 공통 베이스)
+// 공원: 이끼/솔잎, 동네: 바랜 벽돌, 하천: 차분한 호수, 산: 젖은 흙/고목, 기타: 마른 리넨
+const placeThemes = {
+  공원: {
+    name: '솔잎·이끼',
+    bg: '#2C3D32',
+    foil: '#E3DAC9',
+    accent: '#476352',
+    lightBg: '#E9EFEA',
+    lightText: '#26382C',
+  },
+  동네: {
+    name: '바랜 테라코타',
+    bg: '#6E3A2C',
+    foil: '#F5EBE1',
+    accent: '#8C4D3B',
+    lightBg: '#F7EBE8',
+    lightText: '#592B20',
+  },
+  하천길: {
+    name: '깊은 호수',
+    bg: '#253C49',
+    foil: '#E1EDF2',
+    accent: '#395768',
+    lightBg: '#E8F1F5',
+    lightText: '#1E323E',
+  },
+  산: {
+    name: '고목·흙',
+    bg: '#473629',
+    foil: '#EFE7DC',
+    accent: '#614B3B',
+    lightBg: '#EFEAE5',
+    lightText: '#3B2B1F',
+  },
+  기타: {
+    name: '바랜 린넨',
+    bg: '#4A4641',
+    foil: '#E8E5DF',
+    accent: '#635E57',
+    lightBg: '#ECEAE6',
+    lightText: '#383531',
+  },
+};
+---
+
+<BaseLayout
+  title="숲 속의 작은 도서관 - 디자인 시안 3종 비교"
+  description="숲 속의 작은 도서관 리뉴얼을 위한 3가지 스타일 방향 제안 및 실시간 비교 시안"
+  noindex={true}
+>
+  <!-- 미세 필름 그레인 오버레이 (스타일 전역 적용) -->
+  <div class="fixed inset-0 pointer-events-none z-50 opacity-[0.025] mix-blend-overlay bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]"></div>
+
+  <div class="min-h-screen bg-[#141413] text-[#F3EFEA] py-8 px-4 sm:px-6">
+    <!-- 상단 시안 선택 컨트롤 바 -->
+    <header class="max-w-6xl mx-auto mb-8 bg-[#1E1D1A]/90 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/10 shadow-2xl">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-serif mb-2 border border-amber-500/30">
+            <Sparkles class="w-3.5 h-3.5" />
+            <span>디자인 리뉴얼 방향 검토</span>
+          </div>
+          <h1 class="font-serif text-xl sm:text-2xl font-bold tracking-tight text-white">
+            숲 속의 작은 도서관 — 3가지 스타일 제안
+          </h1>
+          <p class="text-xs sm:text-sm text-neutral-400 mt-1 font-serif">
+            2010년대식 과도한 장식을 덜어내고, 빛과 그림자·공간감·정제된 타이포그래피로 구현한 현대적 아늑함의 세 가지 해석입니다.
+          </p>
+        </div>
+
+        <!-- 3개 스타일 전환 탭 -->
+        <div class="inline-flex p-1 rounded-xl bg-black/40 border border-white/10 shrink-0">
+          <button
+            type="button"
+            class="concept-tab-btn active px-3.5 py-2 rounded-lg text-xs font-serif font-bold transition-all bg-amber-600/90 text-white shadow-md flex items-center gap-1.5"
+            data-target="style-a"
+          >
+            <span>스타일 A</span>
+            <span class="text-[10px] font-normal opacity-80">(시네마틱 보태니컬)</span>
+          </button>
+          <button
+            type="button"
+            class="concept-tab-btn px-3.5 py-2 rounded-lg text-xs font-serif font-medium text-neutral-300 hover:text-white transition-all flex items-center gap-1.5"
+            data-target="style-b"
+          >
+            <span>스타일 B</span>
+            <span class="text-[10px] font-normal opacity-80">(에디토리얼 건축미)</span>
+          </button>
+          <button
+            type="button"
+            class="concept-tab-btn px-3.5 py-2 rounded-lg text-xs font-serif font-medium text-neutral-300 hover:text-white transition-all flex items-center gap-1.5"
+            data-target="style-c"
+          >
+            <span>스타일 C</span>
+            <span class="text-[10px] font-normal opacity-80">(수채화·과슈 감성)</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 메인 뷰포트 컨테이너 -->
+    <main class="max-w-6xl mx-auto space-y-16">
+
+      <!-- ======================================================== -->
+      <!-- [STYLE A] 시네마틱 보태니컬 라이브러리 (Cinematic Botanical) -->
+      <!-- ======================================================== -->
+      <section id="style-a" class="concept-section block">
+        <!-- 1. 비주얼 명세 카드 -->
+        <div class="mb-6 p-6 rounded-2xl bg-[#1C1B18] border border-white/10 grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-serif">
+          <div>
+            <div class="text-amber-400 font-bold mb-1 flex items-center gap-1.5 text-sm">
+              <Layers class="w-4 h-4" />
+              <span>한 줄 컨셉</span>
+            </div>
+            <p class="text-neutral-300 leading-relaxed text-sm">
+              "웅장한 아치 통창으로 쏟아지는 금빛 햇살과 나뭇잎 그림자, 숲의 숨결과 서가가 하나로 어우러진 시네마틱 공간"
+            </p>
+            <p class="text-neutral-400 mt-2 text-[11px]">
+              참고 이미지 01(구도)과 02(유기적 곡선 건축)를 가장 직접적으로 계승한 몰입형 배경 연출.
+            </p>
+          </div>
+
+          <div>
+            <div class="text-amber-400 font-bold mb-1 flex items-center gap-1.5 text-sm">
+              <Palette class="w-4 h-4" />
+              <span>색상 팔레트</span>
+            </div>
+            <div class="flex items-center gap-2 mt-2">
+              <div class="w-7 h-7 rounded-lg bg-[#E5A852] border border-white/20 shadow-xs" title="오후 햇살 골드 #E5A852"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#2C3D32] border border-white/20 shadow-xs" title="솔잎 그린 #2C3D32"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#6E3A2C] border border-white/20 shadow-xs" title="바랜 테라코타 #6E3A2C"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#2B231C] border border-white/20 shadow-xs" title="깊은 고목 암영 #2B231C"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#F5EFE6] border border-white/20 shadow-xs" title="따스한 양피지 #F5EFE6"></div>
+            </div>
+            <p class="text-neutral-400 mt-2 text-[11px]">
+              자연 채광 골드와 짙은 목조 그림자, 채도를 낮춘 보태니컬 톤의 대비.
+            </p>
+          </div>
+
+          <div>
+            <div class="text-amber-400 font-bold mb-1 flex items-center gap-1.5 text-sm">
+              <Type class="w-4 h-4" />
+              <span>타이포그래피 위계</span>
+            </div>
+            <ul class="text-neutral-300 space-y-1 mt-1">
+              <li><strong>제목/책등:</strong> Gowun Batang (여유로운 자간과 중후한 박 느낌)</li>
+              <li><strong>본문 산문:</strong> Gowun Batang (넉넉한 행간 2.1, 1.125rem)</li>
+              <li><strong>사진 캡션:</strong> Maru Buri / Gowun Italic (Gaegu 배제, 성숙한 필기체)</li>
+              <li><strong>UI/메타:</strong> Pretendard Variable (군더더기 없는 투명한 정보창)</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 2. 홈 화면 장면 시안 (One Cohesive Scene) -->
+        <div class="relative w-full rounded-2xl overflow-hidden border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.8)] aspect-[16/10] sm:aspect-[16/9] flex flex-col justify-between">
+          <!-- 배경 장면 레이어: 생성된 시네마틱 보태니컬 라이브러리 아트워크 -->
+          <img
+            src={baseUrl('/assets/concepts/style-a-cinematic.jpg')}
+            alt="스타일 A 시네마틱 보태니컬 라이브러리 배경"
+            class="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.92] contrast-[1.05]"
+          />
+
+          <!-- 볼류메트릭 라이트 & 먼지 입자 분위기 오버레이 -->
+          <div
+            class="absolute inset-0 pointer-events-none mix-blend-screen opacity-60"
+            style="background: radial-gradient(ellipse 70% 60% at 75% 35%, rgba(253, 224, 71, 0.28), transparent 70%), radial-gradient(ellipse 60% 50% at 20% 70%, rgba(254, 240, 138, 0.15), transparent 70%);"
+          ></div>
+
+          <!-- 상단: 공중에 반투명하게 떠 있는 미니멀 내비게이션 -->
+          <div class="relative z-10 p-6 flex items-center justify-between">
+            <div class="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-black/35 backdrop-blur-md border border-white/15 text-white/90">
+              <span class="font-serif font-bold text-sm tracking-wide">소풍</span>
+              <span class="text-xs text-white/50 font-serif">· 숲 속의 산책 도서관</span>
+            </div>
+
+            <nav class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/35 backdrop-blur-md border border-white/15 text-xs font-serif text-white/80">
+              <span class="px-2.5 py-1 rounded-lg bg-white/20 text-white font-medium">서가</span>
+              <span class="px-2.5 py-1 hover:text-white transition-colors cursor-pointer">열람 기록부</span>
+              <span class="px-2.5 py-1 hover:text-white transition-colors cursor-pointer">벽면 지도</span>
+              <span class="px-2.5 py-1 hover:text-white transition-colors cursor-pointer">정복 지도</span>
+            </nav>
+          </div>
+
+          <!-- 중앙 여백: 창밖 숲과 쏟아지는 빛줄기가 시원하게 숨 쉬는 공간 -->
+          <div class="relative z-10 px-8 max-w-lg mb-auto mt-4 pointer-events-none">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md text-amber-200 text-[11px] font-serif mb-2 border border-amber-400/20">
+              <span>오후 4시의 볕이 드는 방</span>
+            </div>
+            <h2 class="font-serif text-2xl sm:text-3xl font-bold text-white tracking-tight drop-shadow-md leading-snug">
+              계절을 걸어온 장소들이<br />
+              이 서가에 꽂혀 있습니다.
+            </h2>
+          </div>
+
+          <!-- 하단: 장면에 자연스럽게 녹아든 건축적 서가 (Furniture in Scene) -->
+          <div class="relative z-10 p-6 sm:p-8 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-12">
+            <!-- 서가 상단 탭 (자연스러운 텍스트 링크 형태) -->
+            <div class="flex items-center justify-between mb-3 text-xs font-serif text-white/70">
+              <div class="flex items-center gap-4">
+                <span class="text-white font-bold pb-0.5 border-b border-amber-400">지역별 서가 (서울·경기·인천)</span>
+                <span class="hover:text-white transition-colors cursor-pointer">최근 방문순</span>
+                <span class="hover:text-white transition-colors cursor-pointer">두꺼운 책순</span>
+              </div>
+              <span class="text-[11px] text-white/50">책을 클릭하면 그 장소의 앨범이 펼쳐집니다</span>
+            </div>
+
+            <!-- 현대적 3D 양장본 서가 (No Tacky Woodgrain, Sophisticated Contact Shadows) -->
+            <div class="relative overflow-x-auto hide-scrollbar pt-6 pb-2">
+              <div class="flex items-end justify-start gap-2.5 sm:gap-3 px-4 min-w-max">
+                {placesWithWalks.slice(0, 10).map(({ place, walkCount, latestDate }) => {
+                  const theme = placeThemes[place.data.type] || placeThemes['기타'];
+                  // 방문 횟수에 비례하는 절제된 두께
+                  const spineW = 34 + Math.min(walkCount * 10, 28); // 34px ~ 62px
+                  const spineH = 220 + (place.id.length * 5) % 35; // 220px ~ 255px
+
+                  return (
+                    <div
+                      class="style-a-book relative group cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-5"
+                      style={`width: ${spineW}px; height: ${spineH}px;`}
+                    >
+                      <!-- 책등 본체 (부드러운 좌우 원통형 명암 & 은은한 박) -->
+                      <div
+                        class="w-full h-full rounded-t-sm flex flex-col justify-between items-center py-4 px-1 shadow-[0_12px_24px_rgba(0,0,0,0.6)] relative overflow-hidden"
+                        style={`
+                          background-color: ${theme.bg};
+                          box-shadow: inset 3px 0 4px rgba(255,255,255,0.2), inset -3px 0 5px rgba(0,0,0,0.5), -4px 4px 10px rgba(0,0,0,0.4);
+                        `}
+                      >
+                        <!-- 좌우 원통형 빛 반사 그라데이션 -->
+                        <div class="absolute inset-0 pointer-events-none bg-gradient-to-r from-white/20 via-transparent to-black/45"></div>
+
+                        <!-- 책등 상단 절제된 헤드밴드 라인 -->
+                        <div class="w-full h-0.5 opacity-60 mb-2" style={`background-color: ${theme.foil};`}></div>
+
+                        <!-- 시군구 라벨 -->
+                        <span class="text-[9px] font-sans text-white/70 tracking-wider truncate max-w-full text-center">
+                          {place.data.sigungu.split(' ').pop()}
+                        </span>
+
+                        <!-- 중앙 세로쓰기 장소명 (은은한 금은박 포일 느낌) -->
+                        <div class="my-auto overflow-hidden">
+                          <span
+                            class="writing-vertical font-serif font-bold text-[12px] tracking-[0.2em] line-clamp-1 select-none"
+                            style={`
+                              color: ${theme.foil};
+                              text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+                            `}
+                          >
+                            {place.data.name}
+                          </span>
+                        </div>
+
+                        <!-- 하단 장(Chapter) 수 표기 -->
+                        <div class="mt-2 text-[8px] font-sans px-1.5 py-0.5 rounded-xs bg-black/40 text-white/80 font-medium">
+                          {walkCount > 0 ? `${walkCount}장` : '신간'}
+                        </div>
+
+                        <!-- 책등 하단 라인 -->
+                        <div class="w-full h-0.5 opacity-60 mt-1" style={`background-color: ${theme.foil};`}></div>
+                      </div>
+
+                      <!-- 책 바닥과 선반 사이의 짙고 은은한 접촉 그림자 -->
+                      <div class="absolute -bottom-1 left-0 right-0 h-2 bg-black/60 blur-xs rounded-full pointer-events-none"></div>
+
+                      <!-- 모던 글래스모피즘 프리뷰 툴팁 -->
+                      <div class="pointer-events-none absolute bottom-[105%] left-1/2 -translate-x-1/2 w-56 p-3 rounded-xl bg-black/85 backdrop-blur-md border border-white/15 text-left opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-30 shadow-2xl">
+                        <div class="flex items-center justify-between text-[10px] text-white/60 mb-1">
+                          <span class="px-1.5 py-0.5 rounded" style={`background-color: ${theme.accent}; color: ${theme.foil};`}>{place.data.type}</span>
+                          <span>{place.data.sigungu}</span>
+                        </div>
+                        <h4 class="font-serif text-sm font-bold text-white mb-1.5">{place.data.name}</h4>
+                        <div class="text-[11px] text-white/70 space-y-0.5">
+                          <div>수록된 산책: <strong>{walkCount}편</strong></div>
+                          {latestDate && <div class="text-amber-300">최근: {latestDate}</div>}
+                        </div>
+                        <div class="mt-2 text-[10px] text-amber-400 font-semibold flex items-center justify-end gap-0.5">
+                          <span>앨범 열기</span>
+                          <ArrowRight class="w-2.5 h-2.5" />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <!-- 하단 선반 플레이트: 튀지 않는 미니멀 묵직한 오크 섀도우 -->
+              <div class="h-3.5 w-full bg-gradient-to-b from-[#2B1F17] to-[#120C08] border-t border-white/20 rounded-xs shadow-[0_8px_16px_rgba(0,0,0,0.8)] mt-0"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ======================================================== -->
+      <!-- [STYLE B] 에디토리얼 아키텍처 & 순수한 빛 (Architectural Editorial) -->
+      <!-- ======================================================== -->
+      <section id="style-b" class="concept-section hidden">
+        <!-- 1. 비주얼 명세 카드 -->
+        <div class="mb-6 p-6 rounded-2xl bg-[#1C1B18] border border-white/10 grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-serif">
+          <div>
+            <div class="text-emerald-400 font-bold mb-1 flex items-center gap-1.5 text-sm">
+              <Layers class="w-4 h-4" />
+              <span>한 줄 컨셉</span>
+            </div>
+            <p class="text-neutral-300 leading-relaxed text-sm">
+              "절제된 현대적 창 프레임과 쏟아지는 사선 빛줄기, 서가와 여백의 미학을 극대화한 하이엔드 아키텍처"
+            </p>
+            <p class="text-neutral-400 mt-2 text-[11px]">
+              잡지 킨포크(Kinfolk)·Cereal 스타일의 정제된 미니멀리즘과 부드러운 빛의 잔상.
+            </p>
+          </div>
+
+          <div>
+            <div class="text-emerald-400 font-bold mb-1 flex items-center gap-1.5 text-sm">
+              <Palette class="w-4 h-4" />
+              <span>색상 팔레트</span>
+            </div>
+            <div class="flex items-center gap-2 mt-2">
+              <div class="w-7 h-7 rounded-lg bg-[#F8F6F0] border border-white/20 shadow-xs" title="라임워시 플라스터 #F8F6F0"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#D3C7B5] border border-white/20 shadow-xs" title="오트밀 린넨 #D3C7B5"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#3C4A3E] border border-white/20 shadow-xs" title="뮤트 파인 #3C4A3E"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#614E3F] border border-white/20 shadow-xs" title="내추럴 오크 #614E3F"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#1F1E1C] border border-white/20 shadow-xs" title="차콜 잉크 #1F1E1C"></div>
+            </div>
+            <p class="text-neutral-400 mt-2 text-[11px]">
+              자연광이 깃든 밝은 석회벽과 차분한 오크 원목, 은은한 세이지 그린의 조화.
+            </p>
+          </div>
+
+          <div>
+            <div class="text-emerald-400 font-bold mb-1 flex items-center gap-1.5 text-sm">
+              <Type class="w-4 h-4" />
+              <span>타이포그래피 위계</span>
+            </div>
+            <ul class="text-neutral-300 space-y-1 mt-1">
+              <li><strong>제목:</strong> 절제된 대형 명조 (넉넉한 글자 간격, 건축적 구조감)</li>
+              <li><strong>본문:</strong> Gowun Batang (여백 중심의 정갈한 단락 구성)</li>
+              <li><strong>캡션/숫자:</strong> Pretendard 정밀 모노스페이스 / 로만 세리프 조합</li>
+              <li><strong>특징:</strong> 극도로 절제된 장식선, 넉넉한 상하좌우 여백(Negative space)</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 2. 홈 화면 장면 시안 (Architectural Modernist Scene) -->
+        <div class="relative w-full rounded-2xl overflow-hidden border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.8)] aspect-[16/10] sm:aspect-[16/9] flex flex-col justify-between bg-[#F8F6F0]">
+          <!-- 배경 장면 레이어: 생성된 건축적 미니멀 도서관 아트워크 -->
+          <img
+            src={baseUrl('/assets/concepts/style-b-architectural.jpg')}
+            alt="스타일 B 에디토리얼 아키텍처 라이브러리 배경"
+            class="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.98] contrast-[1.02]"
+          />
+
+          <!-- 사선으로 떨어지는 부드러운 볼류메트릭 빛줄기 오버레이 -->
+          <div
+            class="absolute inset-0 pointer-events-none mix-blend-soft-light opacity-50"
+            style="background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.1) 40%, transparent 80%);"
+          ></div>
+
+          <!-- 상단: 플로팅 에디토리얼 헤더 -->
+          <div class="relative z-10 p-6 sm:p-8 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="font-serif text-lg font-bold tracking-widest text-[#24211D]">PICNIC</span>
+              <span class="h-3 w-px bg-black/20"></span>
+              <span class="font-serif text-xs tracking-wider text-[#696259]">FOREST ARCHIVE</span>
+            </div>
+
+            <nav class="flex items-center gap-4 text-xs font-serif text-[#4B453E] bg-white/70 backdrop-blur-md px-4 py-2 rounded-full border border-black/5 shadow-xs">
+              <span class="text-[#1A1816] font-bold">Bookshelf</span>
+              <span class="hover:text-black transition-colors cursor-pointer">Archive</span>
+              <span class="hover:text-black transition-colors cursor-pointer">Map</span>
+              <span class="hover:text-black transition-colors cursor-pointer">Conquest</span>
+            </nav>
+          </div>
+
+          <!-- 중앙: 조용한 에디토리얼 타이틀 -->
+          <div class="relative z-10 px-8 sm:px-12 my-auto max-w-md">
+            <span class="text-[11px] font-sans tracking-[0.25em] text-[#7A7267] uppercase block mb-1">Vol. 10 Places</span>
+            <h2 class="font-serif text-2xl sm:text-4xl font-normal text-[#1A1816] tracking-tight leading-snug">
+              고요한 빛 속에<br />
+              담아둔 산책의 기록
+            </h2>
+          </div>
+
+          <!-- 하단: 캔틸레버 플로팅 선반과 린넨 양장본 -->
+          <div class="relative z-10 p-6 sm:p-8 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-10">
+            <div class="flex items-center justify-between text-xs font-serif text-[#5E574E] mb-3">
+              <div class="flex items-center gap-4">
+                <span class="font-bold text-[#1A1816] border-b border-[#1A1816] pb-0.5">By Region</span>
+                <span class="cursor-pointer hover:text-black">Latest Visits</span>
+                <span class="cursor-pointer hover:text-black">Volume Size</span>
+              </div>
+              <span class="text-[11px] text-[#8C8478]">Minimalist Clothbound Hardcovers</span>
+            </div>
+
+            <!-- 미니멀 린넨 하드커버 서가 -->
+            <div class="relative overflow-x-auto hide-scrollbar pt-6 pb-2">
+              <div class="flex items-end justify-start gap-3 sm:gap-4 px-4 min-w-max">
+                {placesWithWalks.slice(0, 10).map(({ place, walkCount }) => {
+                  const theme = placeThemes[place.data.type] || placeThemes['기타'];
+                  const spineW = 32 + Math.min(walkCount * 12, 28);
+                  const spineH = 210 + (place.id.length * 6) % 30;
+
+                  return (
+                    <div
+                      class="style-b-book relative group cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-4"
+                      style={`width: ${spineW}px; height: ${spineH}px;`}
+                    >
+                      <!-- 미니멀 매트 린넨 책등 (블라인드 디보스 텍스트) -->
+                      <div
+                        class="w-full h-full rounded-xs flex flex-col justify-between items-center py-4 px-1 shadow-[0_8px_20px_rgba(0,0,0,0.12)] relative overflow-hidden"
+                        style={`
+                          background-color: ${theme.lightBg};
+                          border-left: 1px solid rgba(255,255,255,0.8);
+                          border-right: 1px solid rgba(0,0,0,0.08);
+                        `}
+                      >
+                        <!-- 미세한 질감 섀도우 -->
+                        <div class="absolute inset-0 pointer-events-none bg-gradient-to-r from-black/5 via-transparent to-black/10"></div>
+
+                        <span class="text-[9px] font-sans font-medium tracking-widest text-[#7C756B] truncate max-w-full text-center">
+                          {place.data.sigungu.split(' ').pop()}
+                        </span>
+
+                        <div class="my-auto overflow-hidden">
+                          <span
+                            class="writing-vertical font-serif font-medium text-[12px] tracking-[0.22em] select-none"
+                            style={`color: ${theme.lightText};`}
+                          >
+                            {place.data.name}
+                          </span>
+                        </div>
+
+                        <span class="text-[9px] font-mono text-[#8C8477]">
+                          0{walkCount}
+                        </span>
+                      </div>
+
+                      <!-- 바닥 부드러운 디퓨즈 그림자 -->
+                      <div class="absolute -bottom-1 left-0 right-0 h-1.5 bg-black/15 blur-xs rounded-full pointer-events-none"></div>
+
+                      <!-- 에디토리얼 화이트 팝업 툴팁 -->
+                      <div class="pointer-events-none absolute bottom-[105%] left-1/2 -translate-x-1/2 w-52 p-3.5 rounded-xl bg-white/95 backdrop-blur-md border border-black/10 text-left opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-30 shadow-[0_12px_30px_rgba(0,0,0,0.15)] text-[#2B2723]">
+                        <div class="text-[10px] text-[#827A6E] tracking-wider uppercase mb-1">{place.data.type} · {place.data.sigungu}</div>
+                        <h4 class="font-serif text-sm font-bold text-[#1F1C19] mb-1">{place.data.name}</h4>
+                        <div class="text-[11px] text-[#5C564E]">{walkCount} chapters recorded</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <!-- 캔틸레버 플로팅 선반 -->
+              <div class="h-2 w-full bg-[#E5DEC3] border-t border-black/5 shadow-[0_6px_12px_rgba(0,0,0,0.06)] rounded-full mt-0"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ======================================================== -->
+      <!-- [STYLE C] 수채화·과슈 일러스트 감성 아틀리에 (Gouache Storybook) -->
+      <!-- ======================================================== -->
+      <section id="style-c" class="concept-section hidden">
+        <!-- 1. 비주얼 명세 카드 -->
+        <div class="mb-6 p-6 rounded-2xl bg-[#1C1B18] border border-white/10 grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-serif">
+          <div>
+            <div class="text-orange-400 font-bold mb-1 flex items-center gap-1.5 text-sm">
+              <Layers class="w-4 h-4" />
+              <span>한 줄 컨셉</span>
+            </div>
+            <p class="text-neutral-300 leading-relaxed text-sm">
+              "한 편의 따뜻한 그림책 속에 들어온 듯, 수채화와 과슈의 질감으로 빚어낸 포근한 숲속 은신처"
+            </p>
+            <p class="text-neutral-400 mt-2 text-[11px]">
+              스튜디오 지브리 배경 미술처럼 부드럽고 다정한 감성을 좋아하는 분을 위한 아트워크 중심 스타일.
+            </p>
+          </div>
+
+          <div>
+            <div class="text-orange-400 font-bold mb-1 flex items-center gap-1.5 text-sm">
+              <Palette class="w-4 h-4" />
+              <span>색상 팔레트</span>
+            </div>
+            <div class="flex items-center gap-2 mt-2">
+              <div class="w-7 h-7 rounded-lg bg-[#FAF4EA] border border-white/20 shadow-xs" title="과슈 크림 #FAF4EA"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#4E6B52] border border-white/20 shadow-xs" title="나뭇잎 수채 #4E6B52"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#96543D] border border-white/20 shadow-xs" title="따스한 황토 #96543D"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#537380] border border-white/20 shadow-xs" title="개울물 청색 #537380"></div>
+              <div class="w-7 h-7 rounded-lg bg-[#3C3228] border border-white/20 shadow-xs" title="수채 밤색 #3C3228"></div>
+            </div>
+            <p class="text-neutral-400 mt-2 text-[11px]">
+              종이에 물감이 스며든 듯 부드럽게 번지는 파스텔 웜톤의 조화.
+            </p>
+          </div>
+
+          <div>
+            <div class="text-orange-400 font-bold mb-1 flex items-center gap-1.5 text-sm">
+              <Type class="w-4 h-4" />
+              <span>타이포그래피 위계</span>
+            </div>
+            <ul class="text-neutral-300 space-y-1 mt-1">
+              <li><strong>제목:</strong> Gowun Batang (둥글고 따스한 인상의 붓글씨 명조)</li>
+              <li><strong>본문:</strong> Gowun Batang (동화책 본문 같은 편안한 자간)</li>
+              <li><strong>캡션/메모:</strong> 단정한 펜촉 서체 (어린이 손글씨 Gaegu 대신 차분한 작가의 만년필 필기)</li>
+              <li><strong>UI:</strong> Pretendard (조용히 받쳐주는 기능 서체)</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 2. 홈 화면 장면 시안 (Storybook Atelier Scene) -->
+        <div class="relative w-full rounded-2xl overflow-hidden border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.8)] aspect-[16/10] sm:aspect-[16/9] flex flex-col justify-between">
+          <!-- 배경 장면 레이어: 생성된 수채화 과슈 도서관 아트워크 -->
+          <img
+            src={baseUrl('/assets/concepts/style-c-gouache.jpg')}
+            alt="스타일 C 수채화 과슈 라이브러리 배경"
+            class="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.95]"
+          />
+
+          <!-- 종이 질감 워시 오버레이 -->
+          <div
+            class="absolute inset-0 pointer-events-none mix-blend-color-burn opacity-20 bg-amber-100"
+          ></div>
+
+          <!-- 상단: 따스한 그림책 헤더 -->
+          <div class="relative z-10 p-6 flex items-center justify-between">
+            <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FAF5EC]/90 text-[#3C3228] backdrop-blur-md shadow-md border border-[#E4D8C5]">
+              <span class="font-serif font-bold text-xs">숲속 도서관</span>
+              <span class="text-[11px] opacity-70">소풍 일기</span>
+            </div>
+
+            <nav class="flex items-center gap-2 text-xs font-serif text-[#42372D] bg-[#FAF5EC]/85 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-md border border-[#E4D8C5]">
+              <span class="font-bold text-[#8A4A35]">서가</span>
+              <span class="hover:text-[#8A4A35] transition-colors cursor-pointer">열람 일지</span>
+              <span class="hover:text-[#8A4A35] transition-colors cursor-pointer">탐험 지도</span>
+            </nav>
+          </div>
+
+          <!-- 중앙: 따뜻한 찻잔과 창가 문구 -->
+          <div class="relative z-10 px-8 max-w-sm mt-2 mb-auto">
+            <h2 class="font-serif text-xl sm:text-2xl font-bold text-[#2A231C] tracking-tight drop-shadow-sm leading-snug bg-white/70 backdrop-blur-sm p-3.5 rounded-xl border border-white/50">
+              차 한 잔 식어가는 동안,<br />
+              다녀온 길을 들춰봅니다.
+            </h2>
+          </div>
+
+          <!-- 하단: 수채화풍 패브릭 하드커버 서가 -->
+          <div class="relative z-10 p-6 sm:p-8 bg-gradient-to-t from-[#251F19]/90 via-[#251F19]/60 to-transparent pt-12">
+            <div class="flex items-center justify-between text-xs font-serif text-[#F0E6D8] mb-3">
+              <span class="font-bold text-amber-200">다녀온 장소의 앨범들</span>
+              <span class="text-[11px] opacity-80">책등을 골라 펼쳐보세요</span>
+            </div>
+
+            <div class="relative overflow-x-auto hide-scrollbar pt-6 pb-2">
+              <div class="flex items-end justify-start gap-2.5 sm:gap-3 px-4 min-w-max">
+                {placesWithWalks.slice(0, 10).map(({ place, walkCount }) => {
+                  const theme = placeThemes[place.data.type] || placeThemes['기타'];
+                  const spineW = 34 + Math.min(walkCount * 10, 26);
+                  const spineH = 215 + (place.id.length * 5) % 32;
+
+                  return (
+                    <div
+                      class="style-c-book relative group cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-5"
+                      style={`width: ${spineW}px; height: ${spineH}px;`}
+                    >
+                      <div
+                        class="w-full h-full rounded-t-md flex flex-col justify-between items-center py-4 px-1 shadow-[0_10px_20px_rgba(0,0,0,0.5)] relative overflow-hidden"
+                        style={`
+                          background-color: ${theme.bg};
+                          box-shadow: inset 2px 0 3px rgba(255,255,255,0.25), inset -2px 0 4px rgba(0,0,0,0.4);
+                        `}
+                      >
+                        <div class="w-full h-0.5 opacity-60 mb-1" style={`background-color: ${theme.foil};`}></div>
+                        <span class="text-[9px] font-serif text-white/70 truncate max-w-full text-center">
+                          {place.data.sigungu.split(' ').pop()}
+                        </span>
+
+                        <div class="my-auto overflow-hidden">
+                          <span
+                            class="writing-vertical font-serif font-bold text-[12px] tracking-[0.18em] select-none"
+                            style={`color: ${theme.foil};`}
+                          >
+                            {place.data.name}
+                          </span>
+                        </div>
+
+                        <span class="text-[8px] font-serif px-1 py-0.5 rounded bg-black/30 text-white/90">
+                          {walkCount > 0 ? `${walkCount}장` : '기록전'}
+                        </span>
+                        <div class="w-full h-0.5 opacity-60 mt-1" style={`background-color: ${theme.foil};`}></div>
+                      </div>
+
+                      <div class="absolute -bottom-1 left-0 right-0 h-1.5 bg-black/50 blur-xs rounded-full pointer-events-none"></div>
+
+                      <div class="pointer-events-none absolute bottom-[105%] left-1/2 -translate-x-1/2 w-52 p-3 rounded-xl bg-[#FAF5ED] text-[#2C241D] border border-[#E0D2C0] text-left opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-30 shadow-xl">
+                        <span class="text-[10px] text-[#8A4A35] font-serif font-bold block mb-1">{place.data.type} · {place.data.sigungu}</span>
+                        <h4 class="font-serif text-sm font-bold mb-1">{place.data.name}</h4>
+                        <div class="text-[11px] text-[#695D50]">{walkCount}편의 산책 기록 수록</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div class="h-3 w-full bg-[#423428] border-t border-[#876F5B] rounded-xs shadow-md mt-0"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. 비교 요약표 & 사용자 피드백 안내 -->
+      <section class="p-6 sm:p-8 rounded-2xl bg-[#1C1B18] border border-white/10 text-neutral-300 font-serif">
+        <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <Eye class="w-5 h-5 text-amber-400" />
+          <span>3가지 디자인 방향 핵심 비교 요약</span>
+        </h3>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr class="border-b border-white/15 text-neutral-400">
+                <th class="py-2.5 px-3">구분</th>
+                <th class="py-2.5 px-3 text-amber-300">스타일 A: 시네마틱 보태니컬</th>
+                <th class="py-2.5 px-3 text-emerald-300">스타일 B: 에디토리얼 아키텍처</th>
+                <th class="py-2.5 px-3 text-orange-300">스타일 C: 수채화·과슈 감성</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 text-neutral-300">
+              <tr>
+                <td class="py-3 px-3 font-bold text-white">무드</td>
+                <td class="py-3 px-3">웅장하고 아늑함, 영화의 한 장면 같은 몰입감</td>
+                <td class="py-3 px-3">세련된 킨포크 감성, 빛과 여백의 미학</td>
+                <td class="py-3 px-3">지브리풍 동화적 감성, 따뜻하고 정겨움</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-3 font-bold text-white">창밖 & 조명</td>
+                <td class="py-3 px-3">아치 통창 너머 숲과 개울, 사선 금빛 햇살</td>
+                <td class="py-3 px-3">대형 현대식 유리창, 부드러운 안개 숲빛</td>
+                <td class="py-3 px-3">둥근 나무창과 붓터치 햇살, 따스한 온기</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-3 font-bold text-white">서가 표현</td>
+                <td class="py-3 px-3">원목 인테리어와 일체화된 3D 가죽/천 양장본</td>
+                <td class="py-3 px-3">캔틸레버 플로팅 선반, 디보스 린넨 하드커버</td>
+                <td class="py-3 px-3">따스한 책꽂이, 파스텔 톤의 이야기책</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-3 font-bold text-white">앨범(펼친 책)</td>
+                <td class="py-3 px-3">중후한 양장본 펼침, 깊은 중앙 섀도우, 인화 사진</td>
+                <td class="py-3 px-3">여백이 넓은 잡지 스타일 조판, 극도로 정갈함</td>
+                <td class="py-3 px-3">수채화 스케치북, 차분한 만년필 필기 캡션</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</BaseLayout>
+
+<script>
+  function setupConceptSwitcher() {
+    const tabs = document.querySelectorAll<HTMLButtonElement>('.concept-tab-btn');
+    const sections = document.querySelectorAll<HTMLElement>('.concept-section');
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const targetId = tab.dataset.target;
+        if (!targetId) return;
+
+        // 탭 스타일 전환
+        tabs.forEach((t) => {
+          t.classList.remove('active', 'bg-amber-600/90', 'text-white', 'shadow-md');
+          t.classList.add('text-neutral-300');
+        });
+        tab.classList.add('active', 'bg-amber-600/90', 'text-white', 'shadow-md');
+        tab.classList.remove('text-neutral-300');
+
+        // 섹션 전환
+        sections.forEach((sec) => {
+          if (sec.id === targetId) {
+            sec.classList.remove('hidden');
+            sec.classList.add('block');
+          } else {
+            sec.classList.remove('block');
+            sec.classList.add('hidden');
+          }
+        });
+      });
+    });
+  }
+
+  setupConceptSwitcher();
+  document.addEventListener('astro:after-swap', setupConceptSwitcher);
+</script>

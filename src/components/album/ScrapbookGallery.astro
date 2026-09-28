@@ -32,34 +32,27 @@ const photoList = photoFolder
       }
     })
   : [];
-
-// 스크랩북 기울기 효과 (자연스러운 수작업 느낌)
-const tilts = ['-rotate-1', 'rotate-1', 'rotate-[0.5deg]', '-rotate-[1.5deg]'];
 ---
 
 {photoFolder && (
-  <div class="my-8 scrapbook-gallery">
+  <div class="my-8 album-photo-gallery">
     {photoList.length > 0 ? (
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
-        {photoList.map((filename, idx) => {
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+        {photoList.map((filename) => {
           const fullUrl = baseUrl(`/photos/${photoFolder}/${filename}`);
           const caption = captions[filename] || title;
-          const tiltClass = tilts[idx % tilts.length];
           return (
-            <div class={`relative transition-transform duration-300 hover:rotate-0 hover:scale-[1.02] ${tiltClass}`}>
-              {/* 마스킹 테이프 장식 */}
-              <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-5 tape-strip z-10 rounded-sm pointer-events-none opacity-85 rotate-[-2deg]"></div>
-
-              {/* 인화 사진 카드 */}
-              <figure class="bg-white dark:bg-night-900 p-3 pb-4 rounded shadow-md border border-paper-200 dark:border-night-700">
+            <div class="relative transition-transform duration-300 hover:scale-[1.015]">
+              <!-- 정갈한 인화 사진 카드 (Fine Art Photo Print) -->
+              <figure class="photo-print rounded-xs border border-stone-200/70 dark:border-stone-800">
                 <button
                   type="button"
-                  class="w-full text-left focus:outline-none focus:ring-2 focus:ring-amber-500/50 scrapbook-img-btn group relative block overflow-hidden rounded-sm"
+                  class="w-full text-left focus:outline-none focus:ring-2 focus:ring-amber-500/50 scrapbook-img-btn group relative block overflow-hidden rounded-xs bg-stone-100 dark:bg-stone-900"
                   data-img-src={fullUrl}
                   data-caption={caption}
-                  aria-label={`${caption} 사진 확대보기`}
+                  aria-label={`${caption} 사진 원본 확대보기`}
                 >
-                  <div class="aspect-[4/3] w-full overflow-hidden bg-paper-100 dark:bg-night-800">
+                  <div class="aspect-[4/3] w-full overflow-hidden">
                     <img
                       src={fullUrl}
                       alt={caption}
@@ -73,24 +66,26 @@ const tilts = ['-rotate-1', 'rotate-1', 'rotate-[0.5deg]', '-rotate-[1.5deg]'];
                   </div>
                 </button>
 
-                {/* 손글씨(Gaegu) 캡션 */}
-                <figcaption class="mt-2.5 px-1 font-handwriting text-base sm:text-lg text-ink-700 dark:text-paper-200 text-center leading-snug">
-                  {captions[filename] || caption}
-                </figcaption>
+                <!-- 고품격 나눔명조 캡션 (Nanum Myeongjo) -->
+                {captions[filename] && (
+                  <figcaption class="mt-2.5 px-1 font-caption text-xs sm:text-sm text-stone-600 dark:text-stone-300 text-center leading-relaxed">
+                    {captions[filename]}
+                  </figcaption>
+                )}
               </figure>
             </div>
           );
         })}
       </div>
     ) : (
-      /* 사진 폴더는 있으나 아직 이미지가 동기화되지 않은 경우의 아늑한 플레이스홀더 */
-      <div class="p-6 rounded-xl border border-dashed border-paper-300 dark:border-night-700 bg-paper-100/50 dark:bg-night-900/40 text-center">
-        <Camera class="w-6 h-6 mx-auto mb-2 text-ink-400 opacity-60" />
-        <p class="font-handwriting text-lg text-ink-600 dark:text-ink-400">
-          이 날 찍은 사진들은 사서의 보관함에 잘 간직되어 있습니다.
+      /* 사진 폴더는 있으나 아직 이미지가 동기화되지 않은 경우 */
+      <div class="p-6 rounded-xl border border-dashed border-stone-300 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/40 text-center">
+        <Camera class="w-5 h-5 mx-auto mb-2 text-stone-400 opacity-60" />
+        <p class="font-serif text-sm text-stone-600 dark:text-stone-300">
+          이 날의 사진들은 도서관 보관함에 잘 간직되어 있습니다.
         </p>
-        <p class="text-xs text-ink-400 mt-1">
-          (Phase 5 Google Drive 사진 동기화 완료 시 스크랩북으로 꽂힙니다)
+        <p class="text-xs text-stone-400 mt-1 font-sans">
+          (Google Drive 사진 파이프라인 동기화 시 고화질로 꽂힙니다)
         </p>
       </div>
     )}

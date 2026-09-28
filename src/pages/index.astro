@@ -9,7 +9,6 @@ import {
   Trophy,
   Sparkles,
   ArrowRight,
-  TreePine,
   SunMedium,
 } from '@lucide/astro';
 
@@ -21,96 +20,114 @@ const allWalks = await getCollection('walks', ({ data }) => {
 allWalks.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 const allPlaces = await getCollection('places');
 
-// 방문한 고유 시군구 추출
+// 방문한 고유 시군구 추출 (Phase 6에서 GeoJSON 경계 기반 자동 계산으로 전환)
 const visitedSigungu = new Set(allPlaces.map((p) => `${p.data.sido} ${p.data.sigungu}`));
+
+const bgDay = baseUrl('/assets/concepts/style-b-architectural.jpg');
+const bgNight = baseUrl('/assets/concepts/style-b-architectural-night.jpg');
 ---
 
 <BaseLayout
   title="소풍 - 숲 속의 산책 도서관"
-  description="숲 속의 작은 도서관. 서가에 꽂힌 책들은 모두 내가 다녀온 장소의 앨범입니다."
+  description="숲속에 자리한 현대적 아키텍처 라이브러리. 서가에 꽂힌 책들은 모두 내가 다녀온 장소의 앨범입니다."
 >
-  <div class="library-sunlight min-h-screen">
-    <!-- 도서관 히어로 소개 섹션 -->
-    <section class="relative pt-12 pb-10 sm:pt-16 sm:pb-12 border-b border-paper-200/80 dark:border-night-800">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6">
-        <div class="max-w-3xl">
-          <!-- 도서관 현판 뱃지 -->
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-forest-100/80 dark:bg-forest-950 text-forest-800 dark:text-forest-200 text-xs font-serif font-medium mb-5 border border-forest-200 dark:border-forest-800 shadow-xs">
-            <TreePine class="w-3.5 h-3.5 text-forest-600 dark:text-forest-400" />
+  <!-- 미세 필름 그레인 오버레이 -->
+  <div class="fixed inset-0 pointer-events-none z-40 opacity-[0.02] mix-blend-overlay bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]"></div>
+
+  <!-- 전체 화면 장면 배경 (Style B: 에디토리얼 아키텍처) -->
+  <div
+    class="scene-architectural relative min-h-screen"
+    style={`--bg-scene-day: url('${bgDay}'); --bg-scene-night: url('${bgNight}');`}
+  >
+    <!-- 사선 볼류메트릭 빛줄기 & 공기감 앰비언트 오버레이 -->
+    <div
+      class="absolute inset-0 pointer-events-none mix-blend-soft-light opacity-50 dark:opacity-30"
+      style="background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.15) 45%, transparent 80%);"
+    ></div>
+
+    <!-- 밤 모드 앰비언트 웜 글로우 -->
+    <div
+      class="absolute inset-0 pointer-events-none opacity-0 dark:opacity-40 transition-opacity duration-300"
+      style="background: radial-gradient(ellipse 65% 50% at 20% 45%, rgba(245, 158, 11, 0.15), transparent 70%);"
+    ></div>
+
+    <!-- 상단 인트로 히어로 영역 -->
+    <section class="relative z-10 pt-10 pb-8 sm:pt-16 sm:pb-12 px-4 sm:px-6">
+      <div class="max-w-5xl mx-auto">
+        <div class="max-w-2xl p-6 sm:p-8 rounded-2xl bg-white/75 dark:bg-stone-900/75 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-[0_12px_36px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5)]">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-forest-100/90 dark:bg-forest-950 text-forest-800 dark:text-forest-200 text-xs font-serif font-medium mb-4 border border-forest-200/70 dark:border-forest-800 shadow-xs">
+            <span class="w-1.5 h-1.5 rounded-full bg-forest-600 dark:bg-forest-400"></span>
             <span>숲 속의 작은 산책 도서관</span>
-            <span class="w-1 h-1 rounded-full bg-forest-400"></span>
+            <span class="opacity-40">·</span>
             <SunMedium class="w-3.5 h-3.5 text-amber-500" />
-            <span>창가 햇살</span>
+            <span>오후의 사선 빛</span>
           </div>
 
-          <h1 class="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-ink-900 dark:text-paper-100 leading-tight">
-            나무 냄새 밴 서가에<br class="hidden sm:inline" />
-            걸음마다 피어난 풍경을 꽂아둡니다.
+          <h1 class="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-stone-900 dark:text-paper-100 leading-tight">
+            빛과 나무 냄새 밴 서가에<br class="hidden sm:inline" />
+            걸어온 계절의 풍경을 꽂아둡니다.
           </h1>
 
-          <p class="mt-4 text-base sm:text-lg text-ink-600 dark:text-ink-300 font-serif leading-relaxed">
-            창밖으로 푸른 나뭇잎이 흔들리는 숲속 도서관입니다.<br class="hidden sm:inline" />
+          <p class="mt-4 text-sm sm:text-base text-stone-600 dark:text-stone-300 font-serif leading-relaxed">
+            통창 너머 숲과 시원한 개울이 펼쳐진 아키텍처 라이브러리입니다.<br class="hidden sm:inline" />
             서가에 꽂힌 한 권 한 권의 책은 모두 내가 다녀온 장소의 앨범입니다.
-            책을 골라 빼어들고, 그날의 바람과 햇살을 천천히 넘겨보세요.
+            책을 꺼내어 그날의 바람과 햇살의 온도를 들춰보세요.
           </p>
 
-          <!-- 도서관 현황 요약 칩 -->
-          <div class="mt-8 flex flex-wrap items-center gap-3 text-xs sm:text-sm font-serif">
-            <!-- 앨범 권수 -->
-            <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/80 dark:bg-night-900/80 backdrop-blur border border-paper-200 dark:border-night-800 shadow-xs">
-              <BookOpen class="w-4 h-4 text-wood-600 dark:text-wood-400" />
-              <span class="text-ink-500 dark:text-ink-400">꽂힌 앨범</span>
-              <strong class="font-semibold text-ink-900 dark:text-paper-100">{allPlaces.length}권</strong>
+          <!-- 서가 통계 칩 -->
+          <div class="mt-6 flex flex-wrap items-center gap-3 text-xs font-serif">
+            <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/90 dark:bg-stone-800/90 border border-stone-200/80 dark:border-stone-700 shadow-xs">
+              <BookOpen class="w-4 h-4 text-stone-700 dark:text-stone-300" />
+              <span class="text-stone-500 dark:text-stone-400">꽂힌 앨범</span>
+              <strong class="font-bold text-stone-900 dark:text-paper-100">{allPlaces.length}권</strong>
             </div>
 
-            <!-- 산책 기록 수 -->
-            <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/80 dark:bg-night-900/80 backdrop-blur border border-paper-200 dark:border-night-800 shadow-xs">
-              <Sparkles class="w-4 h-4 text-terracotta-500" />
-              <span class="text-ink-500 dark:text-ink-400">담긴 산책의 장</span>
-              <strong class="font-semibold text-ink-900 dark:text-paper-100">{allWalks.length}편</strong>
+            <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/90 dark:bg-stone-800/90 border border-stone-200/80 dark:border-stone-700 shadow-xs">
+              <Sparkles class="w-4 h-4 text-terracotta-600 dark:text-terracotta-400" />
+              <span class="text-stone-500 dark:text-stone-400">담긴 산책의 장</span>
+              <strong class="font-bold text-stone-900 dark:text-paper-100">{allWalks.length}편</strong>
             </div>
 
-            <!-- 정복 현황 링크 -->
             <a
               href={baseUrl('/conquest')}
-              class="group flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/80 dark:bg-night-900/80 backdrop-blur border border-paper-200 dark:border-night-800 shadow-xs hover:border-terracotta-300 dark:hover:border-terracotta-700/60 transition-colors"
+              class="group flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/90 dark:bg-stone-800/90 border border-stone-200/80 dark:border-stone-700 shadow-xs hover:border-terracotta-400 dark:hover:border-terracotta-600 transition-colors"
             >
               <Trophy class="w-4 h-4 text-amber-500" />
-              <span class="text-ink-500 dark:text-ink-400">정복한 구역</span>
-              <strong class="font-semibold text-terracotta-600 dark:text-terracotta-200">{visitedSigungu.size} / 83</strong>
-              <ArrowRight class="w-3.5 h-3.5 text-ink-400 group-hover:translate-x-0.5 transition-transform" />
+              <span class="text-stone-500 dark:text-stone-400">정복한 구역</span>
+              <strong class="font-bold text-terracotta-700 dark:text-terracotta-300">{visitedSigungu.size} / 83</strong>
+              <ArrowRight class="w-3.5 h-3.5 text-stone-400 group-hover:translate-x-0.5 transition-transform" />
             </a>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- 도서관 서가 메인 섹션 -->
-    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+    <!-- 서가 메인 뷰포트 (Bookshelf with Cantilever Shelves) -->
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 pb-20">
       <Bookshelf places={allPlaces} walks={allWalks} />
 
-      <!-- 하단 안내 배너 (지도 & 열람 기록부) -->
-      <section class="mt-16 p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-night-900/60 backdrop-blur border border-paper-200 dark:border-night-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+      <!-- 하단 공간 둘러보기 배너 -->
+      <section class="mt-16 p-6 sm:p-8 rounded-2xl bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
         <div class="space-y-1 text-center sm:text-left">
-          <h3 class="font-serif text-lg font-bold text-ink-900 dark:text-paper-100">
-            도서관의 다른 열람실을 둘러보세요
+          <h3 class="font-serif text-lg font-bold text-stone-900 dark:text-paper-100">
+            도서관의 다른 서고를 둘러보세요
           </h3>
-          <p class="text-xs sm:text-sm text-ink-600 dark:text-ink-400 font-serif">
-            벽에 걸린 수도권 대형 지도에서 장소를 찾거나, 날짜순 열람 기록부로 산책을 감상할 수 있습니다.
+          <p class="text-xs sm:text-sm text-stone-600 dark:text-stone-400 font-serif">
+            벽면에 걸린 수도권 대형 장소 지도와 날짜순 전체 산책 일지를 열람할 수 있습니다.
           </p>
         </div>
 
         <div class="flex items-center gap-3 shrink-0">
           <a
             href={baseUrl('/archive')}
-            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white dark:bg-night-800 text-xs sm:text-sm font-semibold font-serif text-ink-800 dark:text-paper-100 border border-paper-300 dark:border-night-700 hover:border-terracotta-300 transition-colors shadow-xs"
+            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white dark:bg-stone-800 text-xs sm:text-sm font-semibold font-serif text-stone-800 dark:text-paper-100 border border-stone-300 dark:border-stone-700 hover:border-terracotta-400 transition-colors shadow-xs"
           >
-            <BookOpen class="w-4 h-4 text-wood-600 dark:text-wood-400" />
+            <BookOpen class="w-4 h-4 text-stone-600 dark:text-stone-300" />
             열람 기록부
           </a>
           <a
             href={baseUrl('/map')}
-            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-forest-600 hover:bg-forest-700 text-xs sm:text-sm font-semibold font-serif text-white transition-colors shadow-xs"
+            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-xs sm:text-sm font-semibold font-serif text-white transition-colors shadow-xs"
           >
             <Map class="w-4 h-4" />
             장소 지도
