@@ -66,21 +66,130 @@
   background-repeat: no-repeat;
 }
 
-/* 캔틸레버 플로팅 선반 (Modern Cantilever Floating Shelf) */
-.cantilever-shelf {
-  background: linear-gradient(180deg, #E6DDD0 0%, #D4C7B5 60%, #B8A894 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.7);
+/* 고풍스럽고 따뜻한 아키텍처 라이브러리 서가 (Architectural Wooden Bookcase) */
+.library-bookcase {
+  background-color: #F7F3EC;
+  background-image: 
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.6) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(235, 225, 212, 0.4) 0%, rgba(245, 239, 230, 0.8) 100%);
+  border: 1px solid #D8C7B5;
   box-shadow: 
-    0 12px 28px -4px rgba(28, 22, 16, 0.25),
-    0 4px 10px -2px rgba(28, 22, 16, 0.15);
+    inset 0 14px 28px -6px rgba(45, 30, 15, 0.1),
+    inset 0 -8px 20px rgba(45, 30, 15, 0.06),
+    0 20px 48px -8px rgba(35, 22, 12, 0.16);
 }
 
-.dark .cantilever-shelf {
-  background: linear-gradient(180deg, #383028 0%, #29221B 60%, #1A1410 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+.dark .library-bookcase {
+  background-color: #161310;
+  background-image: 
+    radial-gradient(ellipse at 50% 0%, rgba(255, 215, 160, 0.05) 0%, transparent 65%),
+    linear-gradient(180deg, #1A1511 0%, #120F0D 100%);
+  border: 1px solid #362920;
   box-shadow: 
-    0 14px 32px -4px rgba(0, 0, 0, 0.7),
-    0 6px 12px -2px rgba(0, 0, 0, 0.5);
+    inset 0 16px 36px -6px rgba(0, 0, 0, 0.7),
+    inset 0 -10px 24px rgba(0, 0, 0, 0.5),
+    0 24px 60px -8px rgba(0, 0, 0, 0.85);
+}
+
+/* 묵직한 원목 선반 (Solid Oak Shelf Plank - 24px 두께감) */
+.wood-shelf-plank {
+  height: 24px;
+  width: 100%;
+  position: relative;
+  border-radius: 2px;
+  background: linear-gradient(180deg, 
+    #E8DCBE 0%, 
+    #CDB996 18%, 
+    #A89271 70%, 
+    #7A6448 100%
+  );
+  border-top: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 
+    0 16px 32px -4px rgba(40, 25, 12, 0.4),
+    0 6px 14px -2px rgba(40, 25, 12, 0.25);
+}
+
+.wood-shelf-plank::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.3) 0%, 
+    rgba(255, 255, 255, 0.7) 35%, 
+    rgba(255, 255, 255, 0.2) 100%
+  );
+  pointer-events: none;
+}
+
+.dark .wood-shelf-plank {
+  background: linear-gradient(180deg, 
+    #4D3C2E 0%, 
+    #382A1F 18%, 
+    #241A13 70%, 
+    #150F0B 100%
+  );
+  border-top: 1.5px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 
+    0 20px 40px -4px rgba(0, 0, 0, 0.85),
+    0 8px 18px -2px rgba(0, 0, 0, 0.65);
+}
+
+.dark .wood-shelf-plank::before {
+  background: linear-gradient(90deg, 
+    rgba(255, 220, 180, 0.08) 0%, 
+    rgba(255, 220, 180, 0.2) 35%, 
+    rgba(255, 220, 180, 0.05) 100%
+  );
+}
+
+/* 양장본 패브릭 린넨 텍스처 (Clothbound Texture Overlay) */
+.clothbound-texture {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+/* 양장본 돋을새김 가로 리브 (Spine Raised Bands) */
+.spine-rib {
+  height: 3px;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.22),
+    0 -1px 0 rgba(0, 0, 0, 0.32);
+}
+
+/* 실크 리본 가름끈 (Silk Bookmark Ribbon) */
+.silk-ribbon {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), 50% 100%, 0 calc(100% - 5px));
+  box-shadow: 1px 3px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* 책등 음각 박 텍스트 효과 (Debossed Foil Stamping) */
+.foil-deboss {
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.75), 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+/* 아키텍처 브라스/우드 북엔드 */
+.shelf-bookend {
+  width: 14px;
+  height: 140px;
+  border-radius: 2px 6px 2px 2px;
+  background: linear-gradient(135deg, #D4AF37 0%, #AA8222 50%, #6E5314 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 
+    2px 6px 14px rgba(0, 0, 0, 0.3),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.dark .shelf-bookend {
+  background: linear-gradient(135deg, #A88728 0%, #7A5E16 50%, #42320A 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 
+    3px 8px 18px rgba(0, 0, 0, 0.7),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.25);
 }
 
 /* 책등 세로쓰기 */

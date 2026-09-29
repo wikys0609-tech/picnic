@@ -19,61 +19,54 @@ const isRecent = latestWalk
   ? (new Date('2026-09-27').getTime() - new Date(latestWalk.data.date).getTime()) / (1000 * 60 * 60 * 24) <= 7
   : false;
 
-// 장소 ID 기반 결정적 높이 (235px ~ 275px)
+// 장소 ID 기반 결정적 높이 (245px ~ 280px)
 const idHash = place.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-const spineHeight = 235 + (idHash % 41);
+const spineHeight = 245 + (idHash % 36);
 
-// 방문 횟수에 비례하는 두께 (36px ~ 64px)
-let spineWidth = 36;
-if (walkCount === 1) spineWidth = 44;
-else if (walkCount === 2) spineWidth = 54;
-else if (walkCount >= 3) spineWidth = 64;
+// 방문 횟수에 비례하는 두께 (42px ~ 68px)
+let spineWidth = 42;
+if (walkCount === 1) spineWidth = 50;
+else if (walkCount === 2) spineWidth = 58;
+else if (walkCount >= 3) spineWidth = 68;
 
-// 배경 그래픽(밝은 라임워시 석회벽 / 어두운 밤 서재)과 어울리면서도
-// 서가에서 선명하고 확실하게 눈에 띄는 고유 텍스타일 컬러 팔레트
+// 고급 서재 양장본 패브릭 & 금박/은박 팔레트
 interface SpineTheme {
   bg: string;
   foil: string;
   accent: string;
-  badgeBg: string;
-  badgeText: string;
+  ribbon: string;
 }
 
 const themeMap: Record<string, SpineTheme> = {
   공원: {
-    bg: '#243C2E', // 깊은 솔잎 상록색
-    foil: '#F6EBD9', // 앤틱 웜골드박
-    accent: '#3D5E48',
-    badgeBg: 'rgba(15, 30, 20, 0.65)',
-    badgeText: '#D1FAE5',
+    bg: '#1E382A', // 깊고 품격 있는 솔숲 그린
+    foil: '#F5E6CA', // 샴페인 웜골드박
+    accent: '#2F523D',
+    ribbon: '#F59E0B',
   },
   동네: {
-    bg: '#7E3A28', // 온기 있는 벽돌 테라코타
-    foil: '#FDF5EC', // 웜 크림박
-    accent: '#A3482C',
-    badgeBg: 'rgba(60, 20, 12, 0.65)',
-    badgeText: '#FEE2E2',
+    bg: '#752F1F', // 따뜻하고 깊은 테라코타 클로스
+    foil: '#FDF1E2', // 크림 로즈골드박
+    accent: '#96412D',
+    ribbon: '#FBBF24',
   },
   하천길: {
-    bg: '#1D3546', // 깊은 호수 슬레이트 네이비
-    foil: '#E3F0F7', // 실버 아이스박
-    accent: '#2B4C60',
-    badgeBg: 'rgba(12, 28, 38, 0.65)',
-    badgeText: '#CFFAFE',
+    bg: '#1B3142', // 고요하고 지적인 딥 인디고 호수
+    foil: '#E5F0F8', // 실버 플래티넘박
+    accent: '#2A4A62',
+    ribbon: '#38BDF8',
   },
   산: {
-    bg: '#4A3423', // 깊은 고목 흙갈색
-    foil: '#F4E8D7', // 브라스 황동박
-    accent: '#6E4E35',
-    badgeBg: 'rgba(35, 22, 14, 0.65)',
-    badgeText: '#FEF3C7',
+    bg: '#402919', // 고목과 대지의 앤틱 월넛 브라운
+    foil: '#F5E5C9', // 앤틱 브라스 황동박
+    accent: '#5E3E26',
+    ribbon: '#F59E0B',
   },
   기타: {
-    bg: '#3B3732', // 단정한 웜 차콜 린넨
-    foil: '#ECE8E1', // 본 화이트박
-    accent: '#57524A',
-    badgeBg: 'rgba(25, 23, 20, 0.65)',
-    badgeText: '#F5F5F4',
+    bg: '#36312B', // 단정하고 차분한 차콜 웜 린넨
+    foil: '#EFECE6', // 아이보리 펄박
+    accent: '#4F4840',
+    ribbon: '#D97706',
   },
 };
 
@@ -82,31 +75,34 @@ const theme = themeMap[type] || themeMap['기타'];
 
 <div
   class="book-spine-wrapper relative group shrink-0 flex flex-col justify-end items-center select-none"
-  style={`height: 295px; width: ${spineWidth + 8}px;`}
+  style={`height: 295px; width: ${spineWidth + 6}px;`}
   data-place-id={place.id}
 >
-  <!-- 7일 이내 최근 방문 실크 리본 북마크 -->
+  <!-- 7일 이내 최근 방문 실크 리본 북마크 (책 머리에서 자연스럽게 흘러내리는 가름끈) -->
   {isRecent && (
     <div
-      class="absolute -top-3 z-20 transition-transform duration-300 group-hover:-translate-y-2 pointer-events-none"
+      class="absolute top-1 left-2 z-20 transition-transform duration-300 group-hover:-translate-y-2 pointer-events-none"
       title="최근 7일 이내 다녀온 장소"
     >
-      <div class="w-3.5 h-6 bg-amber-400 dark:bg-amber-500 shadow-md rounded-t-xs" style="clip-path: polygon(0 0, 100% 0, 100% 80%, 50% 100%, 0 80%);"></div>
+      <div
+        class="silk-ribbon w-3 h-8 shadow-md"
+        style={`background: linear-gradient(180deg, #FBBF24 0%, #D97706 100%);`}
+      ></div>
     </div>
   )}
 
-  <!-- 책등 본체 링크 (클릭 시 앨범으로 펼쳐짐) -->
+  <!-- 책등 본체 링크 (양장본 도록 스타일) -->
   <a
     href={baseUrl(`/places/${place.id}`)}
-    class="book-spine relative block w-full rounded-t-xs transition-all duration-300 ease-out group-hover:-translate-y-4 group-focus:-translate-y-4 focus:outline-none focus:ring-2 focus:ring-amber-400/80 cursor-pointer overflow-hidden"
+    class="book-spine relative block w-full rounded-t-xs transition-all duration-300 ease-out group-hover:-translate-y-5 group-hover:scale-[1.01] group-focus:-translate-y-5 focus:outline-none focus:ring-2 focus:ring-amber-400/80 cursor-pointer overflow-hidden clothbound-texture"
     style={`
       height: ${spineHeight}px;
       width: ${spineWidth}px;
       background-color: ${theme.bg};
       box-shadow: 
-        inset 3px 0 4px rgba(255, 255, 255, 0.22),
-        inset -3px 0 5px rgba(0, 0, 0, 0.45),
-        -5px 6px 14px rgba(0, 0, 0, 0.35);
+        inset 4px 0 5px rgba(255, 255, 255, 0.2),
+        inset -4px 0 6px rgba(0, 0, 0, 0.45),
+        -5px 8px 18px rgba(20, 14, 8, 0.38);
     `}
     data-place-id={place.id}
     data-place-name={name}
@@ -118,55 +114,63 @@ const theme = themeMap[type] || themeMap['기타'];
     data-type-bg={theme.accent}
     aria-label={`${name} 앨범 펼쳐보기 (${walkCount}편 수록)`}
   >
-    <!-- 3D 둥근 책등 실린더 하이라이트 & 림라이트 오버레이 -->
+    <!-- 원통형 책등 하이라이트 & 림라이트 오버레이 -->
     <div
       class="absolute inset-0 pointer-events-none"
-      style="background: linear-gradient(90deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.06) 24%, rgba(0,0,0,0.05) 60%, rgba(0,0,0,0.38) 100%);"
+      style="background: linear-gradient(90deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 20%, rgba(0,0,0,0.02) 65%, rgba(0,0,0,0.38) 100%);"
     ></div>
 
-    <!-- 책등 상단 절제된 림 밴드 -->
-    <div class="absolute top-2 left-0 right-0 h-[2px] opacity-70" style={`background-color: ${theme.foil};`}></div>
+    <!-- 양장본 돋을새김 리브 1 (상단) -->
+    <div class="spine-rib absolute top-3 left-0 right-0"></div>
 
-    <!-- 책등 텍스트 레이아웃 -->
-    <div class="relative z-1 h-full flex flex-col justify-between items-center py-4 px-1">
-      <!-- 상단 시군구 소형 라벨 -->
-      <span
-        class="text-[9.5px] font-sans font-semibold tracking-wider opacity-85 truncate max-w-full text-center leading-none"
-        style={`color: ${theme.foil};`}
-      >
-        {sigungu.split(' ').pop()}
-      </span>
+    <!-- 책등 텍스트 및 서지 정보 레이아웃 -->
+    <div class="relative z-1 h-full flex flex-col justify-between items-center py-5 px-1.5">
+      <!-- 상단 시군구 소형 라벨 (정갈한 금박/은박 음각 레터링) -->
+      <div class="flex flex-col items-center">
+        <span
+          class="text-[9.5px] font-serif font-medium tracking-[0.2em] opacity-85 truncate max-w-full text-center leading-none foil-deboss"
+          style={`color: ${theme.foil};`}
+        >
+          {sigungu.split(' ').pop()}
+        </span>
+      </div>
 
-      <!-- 중앙 세로쓰기 장소명 (Gowun Batang Bold & 은은한 박 느낌) -->
+      <!-- 양장본 돋을새김 리브 2 (제목 위) -->
+      <div class="spine-rib w-full my-1"></div>
+
+      <!-- 중앙 세로쓰기 장소명 (Gowun Batang 볼드 & 금박 음각) -->
       <div class="flex-1 flex items-center justify-center my-2 overflow-hidden">
         <h3
-          class="writing-vertical font-serif font-bold text-center tracking-[0.2em] line-clamp-1 select-none"
+          class="writing-vertical font-serif font-bold text-center tracking-[0.26em] line-clamp-1 select-none foil-deboss"
           style={`
             color: ${theme.foil};
-            font-size: ${spineWidth >= 52 ? '13px' : '11.5px'};
-            text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+            font-size: ${spineWidth >= 58 ? '13.5px' : '12px'};
           `}
         >
           {name}
         </h3>
       </div>
 
-      <!-- 하단 권수/장 표시 엠블럼 -->
+      <!-- 양장본 돋을새김 리브 3 (제목 아래) -->
+      <div class="spine-rib w-full my-1"></div>
+
+      <!-- 하단 권수/장 표시 (우아한 북바인더 금박 인장 메달리온) -->
       <div class="flex flex-col items-center">
-        <span
-          class="text-[8.5px] font-sans font-bold px-1.5 py-0.5 rounded-xs"
+        <div
+          class="w-6 h-6 rounded-full border flex items-center justify-center font-serif text-[10px] font-bold foil-deboss"
           style={`
-            background-color: ${theme.badgeBg};
-            color: ${theme.badgeText};
+            border-color: ${theme.foil}60;
+            color: ${theme.foil};
+            background-color: rgba(0, 0, 0, 0.18);
           `}
         >
-          {walkCount > 0 ? `${walkCount}장` : '신간'}
-        </span>
+          {walkCount > 0 ? `${walkCount}章` : '新'}
+        </div>
       </div>
     </div>
 
-    <!-- 책등 하단 림 밴드 -->
-    <div class="absolute bottom-2 left-0 right-0 h-[2px] opacity-70" style={`background-color: ${theme.foil};`}></div>
+    <!-- 양장본 돋을새김 리브 4 (하단) -->
+    <div class="spine-rib absolute bottom-3 left-0 right-0"></div>
   </a>
 
   <!-- 책 바닥 선반 접촉 그림자 (Contact Shadow) -->

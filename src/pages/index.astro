@@ -52,10 +52,10 @@ const bgNight = baseUrl('/assets/concepts/style-b-architectural-night.jpg');
     ></div>
 
     <!-- 상단 인트로 히어로 영역 -->
-    <section class="relative z-10 pt-10 pb-8 sm:pt-16 sm:pb-12 px-4 sm:px-6">
+    <section class="relative z-10 pt-10 pb-8 sm:pt-16 sm:pb-10 px-4 sm:px-6">
       <div class="max-w-5xl mx-auto">
-        <div class="max-w-2xl p-6 sm:p-8 rounded-2xl bg-white/75 dark:bg-stone-900/75 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-[0_12px_36px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5)]">
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-forest-100/90 dark:bg-forest-950 text-forest-800 dark:text-forest-200 text-xs font-serif font-medium mb-4 border border-forest-200/70 dark:border-forest-800 shadow-xs">
+        <div class="w-full p-6 sm:p-10 rounded-3xl bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border border-stone-200/90 dark:border-stone-800 shadow-[0_16px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-forest-100/90 dark:bg-forest-950 text-forest-800 dark:text-forest-200 text-xs font-serif font-medium mb-4 border border-forest-200/70 dark:border-forest-800 shadow-xs">
             <span class="w-1.5 h-1.5 rounded-full bg-forest-600 dark:bg-forest-400"></span>
             <span>숲 속의 작은 산책 도서관</span>
             <span class="opacity-40">·</span>
@@ -63,40 +63,44 @@ const bgNight = baseUrl('/assets/concepts/style-b-architectural-night.jpg');
             <span>오후의 사선 빛</span>
           </div>
 
-          <h1 class="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-stone-900 dark:text-paper-100 leading-tight">
-            빛과 나무 냄새 밴 서가에<br class="hidden sm:inline" />
-            걸어온 계절의 풍경을 꽂아둡니다.
-          </h1>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-end">
+            <div class="lg:col-span-8">
+              <h1 class="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-stone-900 dark:text-paper-100 leading-tight">
+                빛과 나무 냄새 밴 서가에<br class="hidden sm:inline" />
+                걸어온 계절의 풍경을 꽂아둡니다.
+              </h1>
 
-          <p class="mt-4 text-sm sm:text-base text-stone-600 dark:text-stone-300 font-serif leading-relaxed">
-            통창 너머 숲과 시원한 개울이 펼쳐진 아키텍처 라이브러리입니다.<br class="hidden sm:inline" />
-            서가에 꽂힌 한 권 한 권의 책은 모두 내가 다녀온 장소의 앨범입니다.
-            책을 꺼내어 그날의 바람과 햇살의 온도를 들춰보세요.
-          </p>
-
-          <!-- 서가 통계 칩 -->
-          <div class="mt-6 flex flex-wrap items-center gap-3 text-xs font-serif">
-            <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/90 dark:bg-stone-800/90 border border-stone-200/80 dark:border-stone-700 shadow-xs">
-              <BookOpen class="w-4 h-4 text-stone-700 dark:text-stone-300" />
-              <span class="text-stone-500 dark:text-stone-400">꽂힌 앨범</span>
-              <strong class="font-bold text-stone-900 dark:text-paper-100">{allPlaces.length}권</strong>
+              <p class="mt-4 text-sm sm:text-base text-stone-600 dark:text-stone-300 font-serif leading-relaxed max-w-2xl">
+                통창 너머 숲과 시원한 개울이 펼쳐진 아키텍처 라이브러리입니다.<br class="hidden sm:inline" />
+                서가에 꽂힌 한 권 한 권의 책은 모두 내가 다녀온 장소의 앨범입니다.
+                책을 꺼내어 그날의 바람과 햇살의 온도를 들춰보세요.
+              </p>
             </div>
 
-            <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/90 dark:bg-stone-800/90 border border-stone-200/80 dark:border-stone-700 shadow-xs">
-              <Sparkles class="w-4 h-4 text-terracotta-600 dark:text-terracotta-400" />
-              <span class="text-stone-500 dark:text-stone-400">담긴 산책의 장</span>
-              <strong class="font-bold text-stone-900 dark:text-paper-100">{allWalks.length}편</strong>
-            </div>
+            <!-- 서가 통계 칩 컬럼 -->
+            <div class="lg:col-span-4 flex flex-row lg:flex-col flex-wrap gap-2.5 text-xs font-serif justify-start lg:justify-end">
+              <div class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/95 dark:bg-stone-800/95 border border-stone-200/80 dark:border-stone-700 shadow-xs w-full sm:w-auto lg:w-full">
+                <BookOpen class="w-4 h-4 text-forest-700 dark:text-forest-400 shrink-0" />
+                <span class="text-stone-500 dark:text-stone-400 flex-1">꽂힌 앨범</span>
+                <strong class="font-bold text-stone-900 dark:text-paper-100 text-sm">{allPlaces.length}권</strong>
+              </div>
 
-            <a
-              href={baseUrl('/conquest')}
-              class="group flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/90 dark:bg-stone-800/90 border border-stone-200/80 dark:border-stone-700 shadow-xs hover:border-terracotta-400 dark:hover:border-terracotta-600 transition-colors"
-            >
-              <Trophy class="w-4 h-4 text-amber-500" />
-              <span class="text-stone-500 dark:text-stone-400">정복한 구역</span>
-              <strong class="font-bold text-terracotta-700 dark:text-terracotta-300">{visitedSigungu.size} / 83</strong>
-              <ArrowRight class="w-3.5 h-3.5 text-stone-400 group-hover:translate-x-0.5 transition-transform" />
-            </a>
+              <div class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/95 dark:bg-stone-800/95 border border-stone-200/80 dark:border-stone-700 shadow-xs w-full sm:w-auto lg:w-full">
+                <Sparkles class="w-4 h-4 text-terracotta-600 dark:text-terracotta-400 shrink-0" />
+                <span class="text-stone-500 dark:text-stone-400 flex-1">담긴 산책의 장</span>
+                <strong class="font-bold text-stone-900 dark:text-paper-100 text-sm">{allWalks.length}편</strong>
+              </div>
+
+              <a
+                href={baseUrl('/conquest')}
+                class="group flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/95 dark:bg-stone-800/95 border border-stone-200/80 dark:border-stone-700 shadow-xs hover:border-terracotta-400 dark:hover:border-terracotta-600 transition-colors w-full sm:w-auto lg:w-full"
+              >
+                <Trophy class="w-4 h-4 text-amber-500 shrink-0" />
+                <span class="text-stone-500 dark:text-stone-400 flex-1">정복한 구역</span>
+                <strong class="font-bold text-terracotta-700 dark:text-terracotta-300 text-sm">{visitedSigungu.size} / 83</strong>
+                <ArrowRight class="w-3.5 h-3.5 text-stone-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+              </a>
+            </div>
           </div>
         </div>
       </div>

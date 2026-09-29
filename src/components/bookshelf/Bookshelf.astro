@@ -61,21 +61,21 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
 
 <div class="bookshelf-section w-full relative z-10" id="bookshelf-container">
   <!-- 상단 제어 바: 세련된 에디토리얼 글래스 패널 -->
-  <div class="p-5 sm:p-6 rounded-2xl bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+  <div class="p-6 sm:p-8 rounded-2xl bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border border-stone-200/90 dark:border-stone-800 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
     <div>
-      <div class="flex items-center gap-2 mb-1">
-        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+      <div class="flex items-center gap-2 mb-1.5">
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-xs"></span>
         <h2 class="font-serif text-xl sm:text-2xl font-bold tracking-tight text-stone-900 dark:text-paper-100">
           산책 도서관 서가
         </h2>
       </div>
-      <p class="text-xs text-stone-600 dark:text-stone-400 font-sans">
+      <p class="text-xs sm:text-sm text-stone-600 dark:text-stone-400 font-serif">
         책 1권은 다녀온 장소 1곳의 앨범입니다. 책을 골라 펼쳐보세요. (총 {places.length}권의 앨범 꽂힘)
       </p>
     </div>
 
     <!-- 정렬 탭 버튼 -->
-    <div class="inline-flex p-1 rounded-xl bg-stone-100/90 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-xs font-serif font-medium shrink-0">
+    <div class="inline-flex p-1.5 rounded-xl bg-stone-100/90 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700 text-xs font-serif font-medium shrink-0 shadow-xs">
       <button
         type="button"
         class="shelf-tab-btn active px-3.5 py-1.5 rounded-lg transition-all text-stone-900 dark:text-paper-100 font-bold bg-white dark:bg-stone-700 shadow-xs flex items-center gap-1.5"
@@ -108,10 +108,10 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
   <!-- 1. 지역별 서가 뷰 (시·도별 다단 선반) -->
   <div id="shelf-view-region" class="shelf-view space-y-12">
     <!-- 서울 서가 -->
-    <div class="shelf-card p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
-      <div class="flex items-center justify-between gap-4 mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800 min-h-[36px]">
-        <div class="flex items-center gap-2 shrink-0">
-          <span class="w-1.5 h-4 bg-forest-600 rounded-full"></span>
+    <div class="library-bookcase shelf-card p-6 sm:p-8 rounded-2xl relative">
+      <div class="flex items-center justify-between gap-4 mb-6 pb-3 border-b border-stone-300/60 dark:border-stone-800 min-h-[36px]">
+        <div class="flex items-center gap-2.5 shrink-0">
+          <span class="w-2 h-4.5 bg-forest-600 rounded-xs shadow-xs"></span>
           <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
             서울 서가
           </h3>
@@ -119,38 +119,39 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
             ({seoulPlaces.length}권의 앨범)
           </span>
         </div>
-        <div class="shelf-info-slot text-xs text-stone-400 dark:text-stone-500 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
-          <span class="default-info hidden sm:inline truncate">성동구 · 종로구 · 강북구 · 영등포구</span>
+        <div class="shelf-info-slot text-xs text-stone-500 dark:text-stone-400 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
+          <span class="default-info hidden sm:inline truncate font-serif text-[11px] tracking-wide text-stone-500 dark:text-stone-400">성동구 · 종로구 · 강북구 · 영등포구</span>
           <div class="hover-info hidden items-center gap-2 truncate"></div>
         </div>
       </div>
 
       <!-- 다단 선반 렌더링 -->
-      <div class="space-y-10">
+      <div class="space-y-12">
         {seoulTiers.map((tier, tierIndex) => (
-          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-6 pb-0">
+          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-4 pb-0">
             {seoulTiers.length > 1 && (
-              <span class="absolute top-0 left-2 text-[10px] font-sans font-medium text-stone-400">
+              <span class="absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 tracking-wider">
                 제 {tierIndex + 1} 단
               </span>
             )}
-            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
+            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max pl-1 pr-6">
               {tier.map(({ place, walks }) => (
                 <BookSpine place={place} walks={walks} />
               ))}
+              <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
             </div>
-            <!-- 캔틸레버 플로팅 선반 바닥 -->
-            <div class="cantilever-shelf h-3.5 w-full rounded-xs mt-0"></div>
+            <!-- 묵직한 24px 원목 선반 상판 -->
+            <div class="wood-shelf-plank"></div>
           </div>
         ))}
       </div>
     </div>
 
     <!-- 경기 서가 -->
-    <div class="shelf-card p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
-      <div class="flex items-center justify-between gap-4 mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800 min-h-[36px]">
-        <div class="flex items-center gap-2 shrink-0">
-          <span class="w-1.5 h-4 bg-terracotta-600 rounded-full"></span>
+    <div class="library-bookcase shelf-card p-6 sm:p-8 rounded-2xl relative">
+      <div class="flex items-center justify-between gap-4 mb-6 pb-3 border-b border-stone-300/60 dark:border-stone-800 min-h-[36px]">
+        <div class="flex items-center gap-2.5 shrink-0">
+          <span class="w-2 h-4.5 bg-terracotta-600 rounded-xs shadow-xs"></span>
           <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
             경기 서가
           </h3>
@@ -158,36 +159,37 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
             ({gyeonggiPlaces.length}권의 앨범)
           </span>
         </div>
-        <div class="shelf-info-slot text-xs text-stone-400 dark:text-stone-500 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
-          <span class="default-info hidden sm:inline truncate">수원시 영통구 · 팔달구 · 고양시 일산동구</span>
+        <div class="shelf-info-slot text-xs text-stone-500 dark:text-stone-400 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
+          <span class="default-info hidden sm:inline truncate font-serif text-[11px] tracking-wide text-stone-500 dark:text-stone-400">수원시 영통구 · 팔달구 · 고양시 일산동구</span>
           <div class="hover-info hidden items-center gap-2 truncate"></div>
         </div>
       </div>
 
-      <div class="space-y-10">
+      <div class="space-y-12">
         {gyeonggiTiers.map((tier, tierIndex) => (
-          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-6 pb-0">
+          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-4 pb-0">
             {gyeonggiTiers.length > 1 && (
-              <span class="absolute top-0 left-2 text-[10px] font-sans font-medium text-stone-400">
+              <span class="absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 tracking-wider">
                 제 {tierIndex + 1} 단
               </span>
             )}
-            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
+            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max pl-1 pr-6">
               {tier.map(({ place, walks }) => (
                 <BookSpine place={place} walks={walks} />
               ))}
+              <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
             </div>
-            <div class="cantilever-shelf h-3.5 w-full rounded-xs mt-0"></div>
+            <div class="wood-shelf-plank"></div>
           </div>
         ))}
       </div>
     </div>
 
     <!-- 인천 서가 -->
-    <div class="shelf-card p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
-      <div class="flex items-center justify-between gap-4 mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800 min-h-[36px]">
-        <div class="flex items-center gap-2 shrink-0">
-          <span class="w-1.5 h-4 bg-cyan-700 rounded-full"></span>
+    <div class="library-bookcase shelf-card p-6 sm:p-8 rounded-2xl relative">
+      <div class="flex items-center justify-between gap-4 mb-6 pb-3 border-b border-stone-300/60 dark:border-stone-800 min-h-[36px]">
+        <div class="flex items-center gap-2.5 shrink-0">
+          <span class="w-2 h-4.5 bg-cyan-700 rounded-xs shadow-xs"></span>
           <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
             인천 서가
           </h3>
@@ -195,26 +197,27 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
             ({incheonPlaces.length}권의 앨범)
           </span>
         </div>
-        <div class="shelf-info-slot text-xs text-stone-400 dark:text-stone-500 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
-          <span class="default-info hidden sm:inline truncate">연수구 · 제물포구 (2026-07-01 출범 신설 구)</span>
+        <div class="shelf-info-slot text-xs text-stone-500 dark:text-stone-400 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
+          <span class="default-info hidden sm:inline truncate font-serif text-[11px] tracking-wide text-stone-500 dark:text-stone-400">연수구 · 제물포구 (2026-07-01 출범 신설 구)</span>
           <div class="hover-info hidden items-center gap-2 truncate"></div>
         </div>
       </div>
 
-      <div class="space-y-10">
+      <div class="space-y-12">
         {incheonTiers.map((tier, tierIndex) => (
-          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-6 pb-0">
+          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-4 pb-0">
             {incheonTiers.length > 1 && (
-              <span class="absolute top-0 left-2 text-[10px] font-sans font-medium text-stone-400">
+              <span class="absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 tracking-wider">
                 제 {tierIndex + 1} 단
               </span>
             )}
-            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
+            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max pl-1 pr-6">
               {tier.map(({ place, walks }) => (
                 <BookSpine place={place} walks={walks} />
               ))}
+              <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
             </div>
-            <div class="cantilever-shelf h-3.5 w-full rounded-xs mt-0"></div>
+            <div class="wood-shelf-plank"></div>
           </div>
         ))}
       </div>
@@ -223,9 +226,9 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
 
   <!-- 2. 최근 방문순 뷰 -->
   <div id="shelf-view-recent" class="shelf-view hidden">
-    <div class="shelf-card p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
-      <div class="flex items-center justify-between gap-4 mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800 min-h-[36px]">
-        <div class="flex items-center gap-2 shrink-0">
+    <div class="library-bookcase shelf-card p-6 sm:p-8 rounded-2xl relative">
+      <div class="flex items-center justify-between gap-4 mb-6 pb-3 border-b border-stone-300/60 dark:border-stone-800 min-h-[36px]">
+        <div class="flex items-center gap-2.5 shrink-0">
           <Clock class="w-4 h-4 text-amber-500" />
           <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
             최근 방문순 서가
@@ -234,26 +237,27 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
             ({recentSortedPlaces.length}권의 앨범)
           </span>
         </div>
-        <div class="shelf-info-slot text-xs text-stone-400 dark:text-stone-500 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
-          <span class="default-info hidden sm:inline truncate">가장 최근에 다녀온 순서대로 꽂혀 있습니다</span>
+        <div class="shelf-info-slot text-xs text-stone-500 dark:text-stone-400 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
+          <span class="default-info hidden sm:inline truncate font-serif text-[11px] tracking-wide text-stone-500 dark:text-stone-400">가장 최근에 다녀온 순서대로 꽂혀 있습니다</span>
           <div class="hover-info hidden items-center gap-2 truncate"></div>
         </div>
       </div>
 
-      <div class="space-y-10">
+      <div class="space-y-12">
         {recentTiers.map((tier, tierIndex) => (
-          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-6 pb-0">
+          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-4 pb-0">
             {recentTiers.length > 1 && (
-              <span class="absolute top-0 left-2 text-[10px] font-sans font-medium text-stone-400">
+              <span class="absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 tracking-wider">
                 제 {tierIndex + 1} 단
               </span>
             )}
-            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
+            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max pl-1 pr-6">
               {tier.map(({ place, walks }) => (
                 <BookSpine place={place} walks={walks} />
               ))}
+              <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
             </div>
-            <div class="cantilever-shelf h-3.5 w-full rounded-xs mt-0"></div>
+            <div class="wood-shelf-plank"></div>
           </div>
         ))}
       </div>
@@ -262,9 +266,9 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
 
   <!-- 3. 두꺼운 책순 (방문 많은 순) 뷰 -->
   <div id="shelf-view-count" class="shelf-view hidden">
-    <div class="shelf-card p-6 sm:p-8 rounded-2xl bg-white/70 dark:bg-stone-900/65 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm">
-      <div class="flex items-center justify-between gap-4 mb-6 pb-2 border-b border-stone-200/60 dark:border-stone-800 min-h-[36px]">
-        <div class="flex items-center gap-2 shrink-0">
+    <div class="library-bookcase shelf-card p-6 sm:p-8 rounded-2xl relative">
+      <div class="flex items-center justify-between gap-4 mb-6 pb-3 border-b border-stone-300/60 dark:border-stone-800 min-h-[36px]">
+        <div class="flex items-center gap-2.5 shrink-0">
           <Flame class="w-4 h-4 text-terracotta-500" />
           <h3 class="font-serif text-base sm:text-lg font-bold text-stone-900 dark:text-paper-100">
             두꺼운 앨범순 서가
@@ -273,26 +277,27 @@ const countTiers = chunkShelfTiers(countSortedPlaces, 8);
             ({countSortedPlaces.length}권의 앨범)
           </span>
         </div>
-        <div class="shelf-info-slot text-xs text-stone-400 dark:text-stone-500 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
-          <span class="default-info hidden sm:inline truncate">자주 찾아가 장(章)이 많이 쌓인 두꺼운 책부터 진열됩니다</span>
+        <div class="shelf-info-slot text-xs text-stone-500 dark:text-stone-400 font-sans text-right transition-all duration-200 flex items-center justify-end overflow-hidden">
+          <span class="default-info hidden sm:inline truncate font-serif text-[11px] tracking-wide text-stone-500 dark:text-stone-400">자주 찾아가 장(章)이 많이 쌓인 두꺼운 책부터 진열됩니다</span>
           <div class="hover-info hidden items-center gap-2 truncate"></div>
         </div>
       </div>
 
-      <div class="space-y-10">
+      <div class="space-y-12">
         {countTiers.map((tier, tierIndex) => (
-          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-6 pb-0">
+          <div class="shelf-tier relative overflow-x-auto hide-scrollbar pt-4 pb-0">
             {countTiers.length > 1 && (
-              <span class="absolute top-0 left-2 text-[10px] font-sans font-medium text-stone-400">
+              <span class="absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 tracking-wider">
                 제 {tierIndex + 1} 단
               </span>
             )}
-            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max px-4">
+            <div class="flex items-end justify-start gap-3 sm:gap-4 min-w-max pl-1 pr-6">
               {tier.map(({ place, walks }) => (
                 <BookSpine place={place} walks={walks} />
               ))}
+              <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
             </div>
-            <div class="cantilever-shelf h-3.5 w-full rounded-xs mt-0"></div>
+            <div class="wood-shelf-plank"></div>
           </div>
         ))}
       </div>
