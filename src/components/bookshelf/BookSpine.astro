@@ -171,11 +171,11 @@ const theme = themeMap[type] || themeMap['기타'];
       <!-- 하단 권수/장 표시 (우아한 북바인더 금박 인장 메달리온) -->
       <div class="flex flex-col items-center my-1">
         <div
-          class="w-6 h-6 rounded-full border border-amber-300/40 dark:border-amber-200/30 flex items-center justify-center font-serif text-[10.5px] font-bold shadow-inner"
+          class="min-w-[24px] h-6 px-1.5 rounded-full border border-amber-300/40 dark:border-amber-200/30 flex items-center justify-center font-serif text-[10px] font-bold shadow-inner"
           style="background: radial-gradient(circle, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.5) 100%);"
         >
           <span class={theme.foilClass}>
-            {walkCount > 0 ? `${walkCount}章` : '新'}
+            {walkCount > 0 ? `${walkCount}장` : '신간'}
           </span>
         </div>
       </div>
