@@ -9,7 +9,9 @@
     "build": "astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "check": "astro check"
+    "check": "astro check",
+    "new": "node scripts/new-walk.mjs",
+    "import": "node scripts/import-csv.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.4",

@@ -1,0 +1,1636 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+import { baseUrl } from '@/lib/utils/url';
+import { ALL_83_DISTRICTS } from '@/lib/geo/districts';
+import {
+  PenTool,
+  BookOpen,
+  MapPin,
+  Sparkles,
+  Plus,
+  Search,
+  Check,
+  CircleAlert,
+  Key,
+  RefreshCw,
+  ExternalLink,
+  Crosshair,
+  Save,
+  Send,
+  Layers,
+  X,
+} from '@lucide/astro';
+
+// 빌드 시점에 기존 장소 및 산책 목록 로드
+const allPlaces = await getCollection('places');
+const allWalks = await getCollection('walks');
+
+// 최신 날짜순 정렬
+allWalks.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+
+const initialPlaces = allPlaces.map((p) => ({
+  id: p.id,
+  name: p.data.name,
+  lat: p.data.lat,
+  lng: p.data.lng,
+  sido: p.data.sido,
+  sigungu: p.data.sigungu,
+  type: p.data.type,
+  facilities: p.data.facilities || [],
+  tips: p.data.tips || '',
+  hidden: p.data.hidden || false,
+}));
+
+const initialWalks = allWalks.map((w) => ({
+  slug: w.id,
+  title: w.data.title,
+  date: w.data.date,
+  timeOfDay: w.data.timeOfDay || '',
+  weather: w.data.weather || '',
+  companions: w.data.companions || '',
+  mood: w.data.mood || '',
+  places: w.data.places.map((p) => (typeof p === 'string' ? p : p.id)),
+  photoFolder: w.data.photoFolder || '',
+  cover: w.data.cover || '',
+  captions: w.data.captions || {},
+  tags: w.data.tags || [],
+  draft: w.data.draft || false,
+  body: w.body || '',
+}));
+---
+
+<BaseLayout title="사서의 기록 데스크" description="새 산책 기록을 서가에 꽂는 사서의 집무실입니다." noindex={true}>
+  <!-- 데이터 주입용 JSON 스크립트 -->
+  <script id="server-places-data" type="application/json" set:html={JSON.stringify(initialPlaces)} />
+  <script id="server-walks-data" type="application/json" set:html={JSON.stringify(initialWalks)} />
+  <script id="server-districts-data" type="application/json" set:html={JSON.stringify(ALL_83_DISTRICTS)} />
+
+  <div class="min-h-screen bg-stone-100/70 dark:bg-stone-950 py-6 px-4 sm:px-6 transition-colors">
+    <div class="max-w-4xl mx-auto space-y-6">
+
+      <!-- 상단 헤더 & 사서 데스크 타이틀 -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-sm">
+        <div>
+          <div class="flex items-center gap-2 text-forest-700 dark:text-forest-400 text-xs font-serif font-medium mb-1">
+            <PenTool class="w-3.5 h-3.5" />
+            <span>숲 속의 도서관 · 사서의 기록 데스크</span>
+          </div>
+          <h1 class="text-xl sm:text-2xl font-serif font-bold text-stone-900 dark:text-paper-100">
+            산책 기록 보관 및 앨범 편철
+          </h1>
+          <p class="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-0.5">
+            이곳에서 작성한 글과 새 장소는 GitHub 저장소에 원자적으로 커밋되어 자동 배포됩니다.
+          </p>
+        </div>
+
+        <!-- 깃허브 토큰 연결 상태 & 설정 버튼 -->
+        <div class="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            id="btn-open-pat-modal"
+            type="button"
+            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer bg-stone-50 hover:bg-stone-100 dark:bg-stone-800 dark:hover:bg-stone-700/80 text-stone-700 dark:text-stone-200 border-stone-300 dark:border-stone-700 shadow-2xs"
+          >
+            <span id="pat-status-dot" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            <span id="pat-status-text">GitHub 토큰 필요</span>
+            <Key class="w-3 h-3 text-stone-400" />
+          </button>
+
+          <button
+            id="btn-manual-save"
+            type="button"
+            title="브라우저 임시보관"
+            class="p-2 rounded-xl text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-800 transition-colors"
+          >
+            <Save class="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <!-- 작업 모드 탭 (새 산책 / 기존 기록 수정 / 새 장소 단독 등록) -->
+      <div class="flex border-b border-stone-200 dark:border-stone-800 gap-2 sm:gap-4 text-sm font-serif">
+        <button
+          id="tab-mode-new-walk"
+          class="tab-btn px-4 py-2.5 font-bold text-forest-700 dark:text-forest-400 border-b-2 border-forest-600 dark:border-forest-400 flex items-center gap-2"
+        >
+          <PenTool class="w-4 h-4" />
+          <span>새 산책 기록하기</span>
+        </button>
+        <button
+          id="tab-mode-edit-walk"
+          class="tab-btn px-4 py-2.5 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 border-b-2 border-transparent flex items-center gap-2"
+        >
+          <BookOpen class="w-4 h-4" />
+          <span>기존 기록 수정</span>
+        </button>
+        <button
+          id="tab-mode-new-place"
+          class="tab-btn px-4 py-2.5 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 border-b-2 border-transparent flex items-center gap-2"
+        >
+          <MapPin class="w-4 h-4" />
+          <span>새 장소 단독 등록</span>
+        </button>
+      </div>
+
+      <!-- 기존 글 수정 선택기 (기존 글 수정 모드 시 표시) -->
+      <div id="edit-walk-selector" class="hidden bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-800">
+        <label for="select-existing-walk" class="block text-xs font-serif font-bold text-stone-700 dark:text-stone-300 mb-2">
+          수정할 산책 기록 선택 ({initialWalks.length}편 보관 중)
+        </label>
+        <select
+          id="select-existing-walk"
+          class="w-full px-3 py-2 text-sm rounded-lg bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-paper-100 focus:ring-2 focus:ring-forest-500 outline-none"
+        >
+          <option value="">-- 수정할 산책을 선택하세요 --</option>
+          {initialWalks.map((w) => (
+            <option value={w.slug}>
+              [{w.date}] {w.title} ({w.places.join(', ')})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <!-- 메인 폼 영역 -->
+      <form id="write-form" class="space-y-6">
+
+        <!-- 1. 기본 산책 정보 카드 (새 산책 / 수정 모드에서 활성화) -->
+        <div id="section-walk-info" class="bg-white/90 dark:bg-stone-900/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-stone-100 dark:border-stone-800/80 pb-3">
+            <h2 class="text-base font-serif font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+              <Sparkles class="w-4 h-4 text-forest-600 dark:text-forest-400" />
+              <span>1. 산책의 개요</span>
+            </h2>
+            <label class="inline-flex items-center gap-2 text-xs text-stone-600 dark:text-stone-400 cursor-pointer">
+              <input type="checkbox" id="input-draft" class="rounded border-stone-300 text-forest-600 focus:ring-forest-500" />
+              <span>비공개 초안(Draft)으로 저장</span>
+            </label>
+          </div>
+
+          <!-- 산책 제목 -->
+          <div>
+            <label for="input-title" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+              산책 제목 <span class="text-terracotta-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="input-title"
+              required
+              placeholder="예: 초가을 바람과 메타세쿼이아 그늘, 서울숲"
+              class="w-full px-3.5 py-2.5 text-sm sm:text-base rounded-xl bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none transition-all placeholder:text-stone-400"
+            />
+          </div>
+
+          <!-- 일자 & 시간대 & 날씨 -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label for="input-date" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+                방문 일자 <span class="text-terracotta-500">*</span>
+              </label>
+              <div class="relative">
+                <input
+                  type="date"
+                  id="input-date"
+                  required
+                  class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+                시간대
+              </label>
+              <select
+                id="select-time-of-day"
+                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
+              >
+                <option value="">선택 안 함</option>
+                <option value="아침">아침 (새벽~오전)</option>
+                <option value="낮" selected>낮 (오후)</option>
+                <option value="저녁">저녁 (해질녘)</option>
+                <option value="밤">밤 (야경)</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="input-weather" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+                날씨
+              </label>
+              <input
+                type="text"
+                id="input-weather"
+                placeholder="예: 맑고 선선함"
+                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
+              />
+            </div>
+          </div>
+
+          <!-- 동행 & 기분/무드 & 태그 -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label for="input-companions" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+                동행
+              </label>
+              <input
+                type="text"
+                id="input-companions"
+                placeholder="예: 혼자 / 반려견과"
+                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
+              />
+            </div>
+
+            <div>
+              <label for="input-mood" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+                기분 또는 한 줄 인상
+              </label>
+              <input
+                type="text"
+                id="input-mood"
+                placeholder="예: 🌿 평온 / ☕ 여유"
+                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
+              />
+            </div>
+
+            <div>
+              <label for="input-tags" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+                태그 (쉼표로 구분)
+              </label>
+              <input
+                type="text"
+                id="input-tags"
+                placeholder="가을, 숲길, 사색"
+                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 방문 장소 연결 및 새 장소 등록 카드 -->
+        <div class="bg-white/90 dark:bg-stone-900/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-stone-100 dark:border-stone-800/80 pb-3">
+            <div>
+              <h2 class="text-base font-serif font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <MapPin class="w-4 h-4 text-forest-600 dark:text-forest-400" />
+                <span>2. 방문 장소 (서가의 앨범) 연결</span>
+              </h2>
+              <p class="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                산책에서 들른 장소를 선택하세요. 한 산책에 여러 장소를 연결할 수 있습니다.
+              </p>
+            </div>
+
+            <button
+              id="btn-toggle-new-place-modal"
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-serif font-medium bg-forest-50 hover:bg-forest-100 dark:bg-forest-950/60 dark:hover:bg-forest-900 text-forest-700 dark:text-forest-300 border border-forest-200/80 dark:border-forest-800 transition-colors"
+            >
+              <Plus class="w-3.5 h-3.5" />
+              <span>+ 새 장소 추가하기</span>
+            </button>
+          </div>
+
+          <!-- 현재 선택된 장소 칩 목록 -->
+          <div>
+            <span class="block text-xs font-serif font-medium text-stone-600 dark:text-stone-400 mb-2">
+              선택된 방문 장소 (<span id="selected-places-count">0</span>곳) <span class="text-terracotta-500">*</span>
+            </span>
+            <div id="selected-places-container" class="flex flex-wrap gap-2 min-h-10 p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-dashed border-stone-300 dark:border-stone-700 items-center">
+              <span id="no-places-msg" class="text-xs text-stone-400 font-serif">
+                아래 기존 서가 목록에서 선택하거나 [+ 새 장소 추가하기]를 누르세요.
+              </span>
+            </div>
+          </div>
+
+          <!-- 기존 서가 장소 빠른 선택 리스트 -->
+          <div class="pt-2">
+            <span class="block text-xs font-serif font-medium text-stone-600 dark:text-stone-400 mb-2">
+              기존 서가 장소에서 추가:
+            </span>
+            <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1 text-xs">
+              {initialPlaces.map((p) => (
+                <button
+                  type="button"
+                  data-place-id={p.id}
+                  data-place-name={p.name}
+                  data-place-sigungu={p.sigungu}
+                  class="btn-quick-add-place px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-forest-50 dark:bg-stone-800 dark:hover:bg-forest-950/60 text-stone-700 hover:text-forest-700 dark:text-stone-300 dark:hover:text-forest-300 border border-stone-200 dark:border-stone-700 transition-colors flex items-center gap-1"
+                >
+                  <Plus class="w-3 h-3 text-stone-400" />
+                  <span>{p.name}</span>
+                  <span class="text-[10px] text-stone-400">({p.sigungu})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 산책 감상 에세이 작성 영역 -->
+        <div id="section-walk-content" class="bg-white/90 dark:bg-stone-900/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-stone-100 dark:border-stone-800/80 pb-3">
+            <div>
+              <h2 class="text-base font-serif font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <PenTool class="w-4 h-4 text-forest-600 dark:text-forest-400" />
+                <span>3. 산책 에세이 (기록 본문)</span>
+              </h2>
+              <p class="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                마크다운(Markdown) 서식을 지원합니다. 책장의 페이지처럼 편안하게 적어 내려가세요.
+              </p>
+            </div>
+
+            <!-- 미리보기 전환 버튼 -->
+            <div class="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-lg text-xs font-serif">
+              <button
+                type="button"
+                id="btn-tab-write"
+                class="px-2.5 py-1 rounded-md font-medium bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-2xs"
+              >
+                편집기
+              </button>
+              <button
+                type="button"
+                id="btn-tab-preview"
+                class="px-2.5 py-1 rounded-md font-medium text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200"
+              >
+                미리보기
+              </button>
+            </div>
+          </div>
+
+          <!-- 서식 빠른 삽입 툴바 -->
+          <div class="flex flex-wrap gap-1 pb-1 border-b border-stone-100 dark:border-stone-800 text-xs">
+            <button type="button" data-md="## " class="btn-md-insert px-2 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 font-bold" title="소제목">H2</button>
+            <button type="button" data-md="### " class="btn-md-insert px-2 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 font-semibold" title="작은 제목">H3</button>
+            <button type="button" data-md="**텍스트**" class="btn-md-insert px-2 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 font-bold" title="굵게">B</button>
+            <button type="button" data-md="*텍스트*" class="btn-md-insert px-2 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 italic" title="기울임">I</button>
+            <button type="button" data-md="> " class="btn-md-insert px-2 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800" title="인용문">인용</button>
+            <button type="button" data-md="---" class="btn-md-insert px-2 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800" title="구분선">선</button>
+            <button type="button" data-md="![설명](사진파일명.webp)" class="btn-md-insert px-2 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-forest-700 dark:text-forest-400" title="사진 삽입">📷 사진</button>
+          </div>
+
+          <!-- 본문 입력 영역 -->
+          <div id="content-write-wrapper">
+            <textarea
+              id="input-content"
+              rows="12"
+              placeholder="계절의 문턱이 바뀌는 순간은 늘 발끝에서 먼저 느껴진다..."
+              class="w-full p-4 text-sm sm:text-base font-serif leading-relaxed rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none resize-y min-h-64"
+            ></textarea>
+            <div class="flex justify-between items-center text-xs text-stone-400 font-mono mt-1 px-1">
+              <span>글자 수: <span id="char-count">0</span>자</span>
+              <span>단락: <span id="para-count">0</span>개</span>
+            </div>
+          </div>
+
+          <!-- 실시간 마크다운 미리보기 영역 -->
+          <div id="content-preview-wrapper" class="hidden min-h-64 p-5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-700 prose prose-stone dark:prose-invert font-serif max-w-none">
+            <!-- 미리보기 렌더링 영역 -->
+          </div>
+        </div>
+
+        <!-- 4. 사진 및 커버 설정 (선택 사항) -->
+        <div id="section-photo-settings" class="bg-white/90 dark:bg-stone-900/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-4">
+          <div class="border-b border-stone-100 dark:border-stone-800/80 pb-3">
+            <h2 class="text-base font-serif font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+              <Layers class="w-4 h-4 text-forest-600 dark:text-forest-400" />
+              <span>4. 사진 폴더 및 캡션 설정 (선택)</span>
+            </h2>
+            <p class="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+              구글 드라이브 동기화 폴더명과 대표 커버 사진을 지정합니다.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="input-photo-folder" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+                사진 폴더명
+              </label>
+              <input
+                type="text"
+                id="input-photo-folder"
+                placeholder="예: 2026-09-30-seoul-forest"
+                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
+              />
+            </div>
+
+            <div>
+              <label for="input-cover" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+                대표 커버 이미지명
+              </label>
+              <input
+                type="text"
+                id="input-cover"
+                value="cover.webp"
+                placeholder="cover.webp"
+                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. 제출 및 서가 보관 버튼 카드 -->
+        <div class="bg-stone-900 dark:bg-stone-800 text-white p-5 sm:p-6 rounded-2xl shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 class="font-serif font-bold text-base text-amber-200 flex items-center gap-2">
+              <Send class="w-4 h-4" />
+              <span>서가에 기록 꽂기 (GitHub Atomic Commit)</span>
+            </h3>
+            <p class="text-xs text-stone-300 mt-1 max-w-md">
+              새 장소와 산책 글이 단일 커밋으로 원자적 전송되며, GitHub Actions를 통해 약 1분 이내에 사이트에 정식 반영됩니다.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button
+              id="btn-submit-commit"
+              type="submit"
+              class="w-full sm:w-auto px-6 py-3 rounded-xl bg-forest-600 hover:bg-forest-500 text-white font-serif font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+            >
+              <Send class="w-4 h-4" />
+              <span id="btn-submit-text">서가에 보관하기</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== 새 장소 추가 모달 ==================== -->
+  <div id="modal-new-place" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-stone-900 max-w-lg w-full rounded-2xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- 모달 헤더 -->
+      <div class="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between">
+        <div class="flex items-center gap-2 text-forest-700 dark:text-forest-400 font-serif font-bold text-base">
+          <MapPin class="w-4 h-4" />
+          <span>새 장소 등록 (서가에 새 앨범 꽂기)</span>
+        </div>
+        <button id="btn-close-new-place-modal" type="button" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-1">
+          <X class="w-5 h-5" />
+        </button>
+      </div>
+
+      <!-- 모달 본문 (스크롤) -->
+      <div class="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs sm:text-sm">
+        <!-- 카카오 키워드 검색창 & 현재 위치 버튼 -->
+        <div>
+          <label class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+            카카오 장소 검색 또는 주소 입력
+          </label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              id="input-kakao-search"
+              placeholder="예: 송도달빛축제공원, 익선동한옥마을"
+              class="flex-1 px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500 outline-none"
+            />
+            <button
+              id="btn-kakao-search"
+              type="button"
+              class="px-3.5 py-2 rounded-xl bg-forest-600 text-white font-medium hover:bg-forest-700 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <Search class="w-3.5 h-3.5" />
+              <span>검색</span>
+            </button>
+            <button
+              id="btn-get-current-pos"
+              type="button"
+              title="내 현재 GPS 위치 가져오기"
+              class="px-2.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700 transition-colors"
+            >
+              <Crosshair class="w-4 h-4 text-forest-600 dark:text-forest-400" />
+            </button>
+          </div>
+        </div>
+
+        <!-- 카카오 검색 결과 목록 (동적) -->
+        <div id="kakao-search-results" class="hidden max-h-36 overflow-y-auto space-y-1 p-2 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 text-xs">
+        </div>
+
+        <!-- 반경 200m 중복 감지 경고 배너 (동적) -->
+        <div id="nearby-warning-banner" class="hidden p-3 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 space-y-1.5">
+          <div class="flex items-center gap-2 font-bold font-serif text-xs">
+            <CircleAlert class="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span>주변 등록 장소 감지</span>
+          </div>
+          <p id="nearby-warning-text" class="text-xs text-amber-800 dark:text-amber-300 leading-relaxed"></p>
+          <button
+            id="btn-use-nearby-place"
+            type="button"
+            class="mt-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-serif font-medium transition-colors"
+          >
+            기존 장소 재방문으로 연결
+          </button>
+        </div>
+
+        <!-- 장소 기본 정보 입력 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="input-place-name" class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+              장소명 <span class="text-terracotta-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="input-place-name"
+              required
+              placeholder="예: 송도 달빛축제공원"
+              class="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label for="input-place-slug" class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+              장소 영문 ID (slug) <span class="text-terracotta-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="input-place-slug"
+              required
+              placeholder="예: songdo-moonlight"
+              class="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono text-xs focus:ring-2 focus:ring-forest-500 outline-none"
+            />
+          </div>
+        </div>
+
+        <!-- 좌표 (위도, 경도) -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="input-place-lat" class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+              위도 (Lat) <span class="text-terracotta-500">*</span>
+            </label>
+            <input
+              type="number"
+              step="0.0000001"
+              id="input-place-lat"
+              required
+              placeholder="37.400..."
+              class="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono text-xs focus:ring-2 focus:ring-forest-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label for="input-place-lng" class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+              경도 (Lng) <span class="text-terracotta-500">*</span>
+            </label>
+            <input
+              type="number"
+              step="0.0000001"
+              id="input-place-lng"
+              required
+              placeholder="126.634..."
+              class="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono text-xs focus:ring-2 focus:ring-forest-500 outline-none"
+            />
+          </div>
+        </div>
+
+        <!-- 83개 정규화 시·도 및 시·군·구 (자동 변환) -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="select-place-sido" class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+              시·도 <span class="text-terracotta-500">*</span>
+            </label>
+            <select
+              id="select-place-sido"
+              required
+              class="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500 outline-none"
+            >
+              <option value="서울특별시">서울특별시</option>
+              <option value="경기도">경기도</option>
+              <option value="인천광역시">인천광역시</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="input-place-sigungu" class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+              시·군·구 (83개 규격) <span class="text-terracotta-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="input-place-sigungu"
+              required
+              placeholder="예: 연수구, 수원시 영통구"
+              class="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500 outline-none"
+            />
+          </div>
+        </div>
+
+        <!-- 장소 유형 -->
+        <div>
+          <label class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+            장소 유형 <span class="text-terracotta-500">*</span>
+          </label>
+          <div class="grid grid-cols-5 gap-1.5">
+            {['공원', '동네', '하천길', '산', '기타'].map((t) => (
+              <label class="flex items-center justify-center p-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/80 cursor-pointer hover:border-forest-500 text-xs">
+                <input type="radio" name="place-type" value={t} checked={t === '공원'} class="sr-only peer" />
+                <span class="peer-checked:font-bold peer-checked:text-forest-600 dark:peer-checked:text-forest-400">{t}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <!-- 편의시설 태그 (체크박스) -->
+        <div>
+          <label class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+            주요 편의시설
+          </label>
+          <div class="flex flex-wrap gap-1.5">
+            {['화장실', '벤치', '그늘', '식수대', '카페근처', '주차장'].map((fac) => (
+              <label class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-xs text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 cursor-pointer">
+                <input type="checkbox" name="place-facility" value={fac} class="rounded border-stone-300 text-forest-600 focus:ring-forest-500" />
+                <span>{fac}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <!-- 팁 -->
+        <div>
+          <label for="input-place-tips" class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+            산책 팁 / 메모
+          </label>
+          <input
+            type="text"
+            id="input-place-tips"
+            placeholder="예: 해질녘 노을이 호수 너머로 아름답게 비칩니다."
+            class="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500 outline-none"
+          />
+        </div>
+
+        <!-- 장소 설명 (마크다운) -->
+        <div>
+          <label for="input-place-desc" class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+            장소 소개문 (앨범 첫 장에 수록)
+          </label>
+          <textarea
+            id="input-place-desc"
+            rows="3"
+            placeholder="이 장소의 전반적인 분위기와 특징을 한두 문단으로 적어주세요."
+            class="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500 outline-none resize-none"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- 모달 푸터 -->
+      <div class="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/50 flex justify-end gap-2">
+        <button
+          id="btn-cancel-new-place"
+          type="button"
+          class="px-4 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-serif font-medium hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+        >
+          취소
+        </button>
+        <button
+          id="btn-confirm-new-place"
+          type="button"
+          class="px-4 py-2 rounded-xl bg-forest-600 hover:bg-forest-700 text-white text-xs font-serif font-bold transition-colors flex items-center gap-1.5"
+        >
+          <Check class="w-3.5 h-3.5" />
+          <span>장소 확정 및 산책에 추가</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== GitHub PAT 설정 모달 ==================== -->
+  <div id="modal-pat" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-stone-900 max-w-md w-full rounded-2xl border border-stone-200 dark:border-stone-800 shadow-2xl p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
+        <div class="flex items-center gap-2 font-serif font-bold text-stone-900 dark:text-stone-100 text-base">
+          <Key class="w-4 h-4 text-forest-600 dark:text-forest-400" />
+          <span>GitHub Personal Access Token 설정</span>
+        </div>
+        <button id="btn-close-pat-modal" type="button" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-1">
+          <X class="w-5 h-5" />
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs sm:text-sm text-stone-600 dark:text-stone-400">
+        <p class="leading-relaxed">
+          글을 작성하여 GitHub 저장소에 직접 커밋하기 위해 **Fine-grained Personal Access Token**이 필요합니다.
+        </p>
+
+        <div class="p-3 rounded-xl bg-forest-50/70 dark:bg-forest-950/60 border border-forest-200/80 dark:border-forest-900 text-forest-800 dark:text-forest-300 text-xs space-y-1">
+          <div class="font-bold font-serif">📋 토큰 발급 가이드:</div>
+          <div>1. GitHub <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer" class="underline font-bold text-forest-700 dark:text-forest-400 inline-flex items-center gap-0.5">토큰 발급 페이지<ExternalLink class="w-3 h-3" /></a> 접속</div>
+          <div>2. Repository access: <strong class="font-mono">wikys0609-tech/picnic</strong> 선택</div>
+          <div>3. Permissions: <strong class="font-mono">Contents: Read and write</strong> 허용 후 발급</div>
+        </div>
+
+        <div>
+          <label for="input-pat-token" class="block font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+            토큰 값 (github_pat_...)
+          </label>
+          <input
+            type="password"
+            id="input-pat-token"
+            placeholder="github_pat_11..."
+            class="w-full px-3 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono text-xs focus:ring-2 focus:ring-forest-500 outline-none"
+          />
+        </div>
+
+        <div id="pat-verify-result" class="hidden text-xs p-2.5 rounded-lg"></div>
+
+        <p class="text-[11px] text-stone-400 dark:text-stone-500">
+          🔒 보안 안내: 토큰은 외부 서버로 절대 전송되지 않으며, 본인 브라우저의 <code class="bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded">localStorage</code>에만 보관되어 GitHub 공식 API와 직접 통신합니다.
+        </p>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+        <button
+          id="btn-remove-pat"
+          type="button"
+          class="px-3 py-2 rounded-xl text-stone-500 hover:text-terracotta-600 text-xs font-serif transition-colors mr-auto"
+        >
+          토큰 삭제
+        </button>
+        <button
+          id="btn-save-pat"
+          type="button"
+          class="px-4 py-2 rounded-xl bg-forest-600 hover:bg-forest-700 text-white text-xs font-serif font-bold transition-colors flex items-center gap-1.5"
+        >
+          <Check class="w-3.5 h-3.5" />
+          <span>검증 및 저장</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 커밋 진행 / 성공 모달 ==================== -->
+  <div id="modal-commit-progress" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-stone-900 max-w-sm w-full rounded-2xl border border-stone-200 dark:border-stone-800 shadow-2xl p-6 text-center space-y-4">
+      <div id="commit-icon-container" class="w-12 h-12 mx-auto rounded-full bg-forest-100 dark:bg-forest-950 text-forest-600 dark:text-forest-400 flex items-center justify-center">
+        <RefreshCw id="commit-spinner" class="w-6 h-6 animate-spin" />
+        <Check id="commit-check-icon" class="w-6 h-6 hidden text-forest-600 dark:text-forest-400" />
+      </div>
+
+      <div>
+        <h3 id="commit-status-title" class="font-serif font-bold text-base text-stone-900 dark:text-stone-100">
+          서가에 보관 중...
+        </h3>
+        <p id="commit-status-step" class="text-xs text-stone-500 dark:text-stone-400 mt-1 font-mono">
+          저장소 확인 중...
+        </p>
+      </div>
+
+      <!-- 성공 시 버튼들 -->
+      <div id="commit-success-actions" class="hidden space-y-2 pt-2">
+        <a
+          id="link-commit-view"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-xs font-serif font-medium text-stone-800 dark:text-stone-200 transition-colors"
+        >
+          <span>GitHub 커밋 확인</span>
+          <ExternalLink class="w-3.5 h-3.5" />
+        </a>
+        <a
+          href={baseUrl('/')}
+          class="inline-flex items-center justify-center w-full py-2.5 rounded-xl bg-forest-600 hover:bg-forest-700 text-xs font-serif font-bold text-white transition-colors"
+        >
+          숲 속의 도서관 서가로 이동
+        </a>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { verifyGithubToken, atomicCommitFiles } from '@/lib/github/github-api';
+  import { normalizeDistrict, findNearbyPlaces } from '@/lib/geo/districts';
+  import { generatePlaceMarkdown, generateWalkMarkdown, type PlaceInput, type WalkInput } from '@/lib/content/markdown-generator';
+  import { loadKakaoSDK } from '@/lib/map/kakao-loader';
+
+  interface ClientPlace {
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    sido: string;
+    sigungu: string;
+    type?: string;
+    facilities?: string[];
+    tips?: string;
+    hidden?: boolean;
+  }
+
+  // 클라이언트에 내장된 서버 데이터 읽기
+  const placesScript = document.getElementById('server-places-data');
+  const walksScript = document.getElementById('server-walks-data');
+
+  let existingPlaces: ClientPlace[] = placesScript ? JSON.parse(placesScript.textContent || '[]') : [];
+  let existingWalks = walksScript ? JSON.parse(walksScript.textContent || '[]') : [];
+
+  // 선택된 방문 장소 ID 목록 (순서 유지)
+  let selectedPlaceIds: string[] = [];
+
+  // 새로 등록 대기 중인 장소 목록 (단일 세션 내 추가)
+  let pendingNewPlaces: Map<string, PlaceInput> = new Map();
+
+  // 현재 모드: 'new-walk' | 'edit-walk' | 'new-place'
+  let currentMode = 'new-walk';
+
+  // 로컬스토리지 키
+  const STORAGE_PAT = 'picnic_github_pat';
+  const STORAGE_DRAFT = 'picnic_walk_draft';
+
+  // ==========================================
+  // 1. GitHub 토큰 상태 및 모달 제어
+  // ==========================================
+  const patModal = document.getElementById('modal-pat');
+  const patStatusDot = document.getElementById('pat-status-dot');
+  const patStatusText = document.getElementById('pat-status-text');
+  const inputPatToken = document.getElementById('input-pat-token') as HTMLInputElement | null;
+  const patVerifyResult = document.getElementById('pat-verify-result');
+
+  function updatePatUI(token: string | null, username?: string) {
+    if (token && token.trim()) {
+      if (patStatusDot) {
+        patStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+      }
+      if (patStatusText) {
+        patStatusText.textContent = username ? `연결됨 (${username})` : 'GitHub 연결됨';
+      }
+    } else {
+      if (patStatusDot) {
+        patStatusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+      }
+      if (patStatusText) {
+        patStatusText.textContent = 'GitHub 토큰 필요';
+      }
+    }
+  }
+
+  // 초기 토큰 확인
+  const savedPat = localStorage.getItem(STORAGE_PAT);
+  if (savedPat) {
+    updatePatUI(savedPat);
+    // 백그라운드에서 유효성 가벼운 확인
+    verifyGithubToken(savedPat).then((res) => {
+      if (res.valid) {
+        updatePatUI(savedPat, res.username);
+      } else {
+        updatePatUI(null);
+      }
+    });
+  }
+
+  document.getElementById('btn-open-pat-modal')?.addEventListener('click', () => {
+    if (inputPatToken) {
+      inputPatToken.value = localStorage.getItem(STORAGE_PAT) || '';
+    }
+    if (patVerifyResult) {
+      patVerifyResult.className = 'hidden';
+      patVerifyResult.textContent = '';
+    }
+    patModal?.classList.remove('hidden');
+  });
+
+  document.getElementById('btn-close-pat-modal')?.addEventListener('click', () => {
+    patModal?.classList.add('hidden');
+  });
+
+  document.getElementById('btn-save-pat')?.addEventListener('click', async () => {
+    const token = inputPatToken?.value.trim() || '';
+    if (!token) {
+      alert('토큰을 입력해 주세요.');
+      return;
+    }
+
+    if (patVerifyResult) {
+      patVerifyResult.className = 'text-xs p-2.5 rounded-lg bg-stone-100 text-stone-600 block';
+      patVerifyResult.textContent = '토큰 및 저장소 권한 확인 중...';
+    }
+
+    const res = await verifyGithubToken(token);
+    if (res.valid) {
+      localStorage.setItem(STORAGE_PAT, token);
+      updatePatUI(token, res.username);
+      if (patVerifyResult) {
+        patVerifyResult.className = 'text-xs p-2.5 rounded-lg bg-emerald-50 text-emerald-700 block font-serif';
+        patVerifyResult.textContent = `✓ 확인 완료! ${res.username} 계정으로 저장소 쓰기 권한이 확인되었습니다.`;
+      }
+      setTimeout(() => {
+        patModal?.classList.add('hidden');
+      }, 1000);
+    } else {
+      if (patVerifyResult) {
+        patVerifyResult.className = 'text-xs p-2.5 rounded-lg bg-red-50 text-red-600 block';
+        patVerifyResult.textContent = `❌ ${res.errorMessage || '토큰 확인 실패'}`;
+      }
+    }
+  });
+
+  document.getElementById('btn-remove-pat')?.addEventListener('click', () => {
+    if (confirm('저장된 GitHub 토큰을 브라우저에서 삭제하시겠습니까?')) {
+      localStorage.removeItem(STORAGE_PAT);
+      updatePatUI(null);
+      if (inputPatToken) inputPatToken.value = '';
+      patModal?.classList.add('hidden');
+    }
+  });
+
+  // ==========================================
+  // 2. 모드 전환 (새 산책 / 기존 수정 / 새 장소)
+  // ==========================================
+  const tabNewWalk = document.getElementById('tab-mode-new-walk');
+  const tabEditWalk = document.getElementById('tab-mode-edit-walk');
+  const tabNewPlace = document.getElementById('tab-mode-new-place');
+  const editWalkSelector = document.getElementById('edit-walk-selector');
+  const sectionWalkInfo = document.getElementById('section-walk-info');
+  const sectionWalkContent = document.getElementById('section-walk-content');
+  const sectionPhotoSettings = document.getElementById('section-photo-settings');
+  const btnSubmitText = document.getElementById('btn-submit-text');
+
+  function setMode(mode: string) {
+    currentMode = mode;
+    const tabs = [tabNewWalk, tabEditWalk, tabNewPlace];
+    tabs.forEach((t) => {
+      t?.classList.remove('font-bold', 'text-forest-700', 'dark:text-forest-400', 'border-forest-600', 'dark:border-forest-400');
+      t?.classList.add('text-stone-500', 'dark:text-stone-400', 'border-transparent');
+    });
+
+    if (mode === 'new-walk') {
+      tabNewWalk?.classList.add('font-bold', 'text-forest-700', 'dark:text-forest-400', 'border-forest-600', 'dark:border-forest-400');
+      editWalkSelector?.classList.add('hidden');
+      sectionWalkInfo?.classList.remove('hidden');
+      sectionWalkContent?.classList.remove('hidden');
+      sectionPhotoSettings?.classList.remove('hidden');
+      if (btnSubmitText) btnSubmitText.textContent = '서가에 보관하기';
+    } else if (mode === 'edit-walk') {
+      tabEditWalk?.classList.add('font-bold', 'text-forest-700', 'dark:text-forest-400', 'border-forest-600', 'dark:border-forest-400');
+      editWalkSelector?.classList.remove('hidden');
+      sectionWalkInfo?.classList.remove('hidden');
+      sectionWalkContent?.classList.remove('hidden');
+      sectionPhotoSettings?.classList.remove('hidden');
+      if (btnSubmitText) btnSubmitText.textContent = '기록 수정 커밋하기';
+    } else if (mode === 'new-place') {
+      tabNewPlace?.classList.add('font-bold', 'text-forest-700', 'dark:text-forest-400', 'border-forest-600', 'dark:border-forest-400');
+      // 장소 단독 모달 즉시 열기
+      openNewPlaceModal();
+    }
+  }
+
+  tabNewWalk?.addEventListener('click', () => setMode('new-walk'));
+  tabEditWalk?.addEventListener('click', () => setMode('edit-walk'));
+  tabNewPlace?.addEventListener('click', () => setMode('new-place'));
+
+  // ==========================================
+  // 3. 기존 산책 글 선택 시 폼 채우기
+  // ==========================================
+  const selectExistingWalk = document.getElementById('select-existing-walk') as HTMLSelectElement | null;
+  selectExistingWalk?.addEventListener('change', () => {
+    const slug = selectExistingWalk.value;
+    if (!slug) return;
+
+    const walk = existingWalks.find((w: any) => w.slug === slug);
+    if (!walk) return;
+
+    // 폼 값 주입
+    (document.getElementById('input-title') as HTMLInputElement).value = walk.title || '';
+    (document.getElementById('input-date') as HTMLInputElement).value = walk.date || '';
+    (document.getElementById('select-time-of-day') as HTMLSelectElement).value = walk.timeOfDay || '';
+    (document.getElementById('input-weather') as HTMLInputElement).value = walk.weather || '';
+    (document.getElementById('input-companions') as HTMLInputElement).value = walk.companions || '';
+    (document.getElementById('input-mood') as HTMLInputElement).value = walk.mood || '';
+    (document.getElementById('input-tags') as HTMLInputElement).value = (walk.tags || []).join(', ');
+    (document.getElementById('input-draft') as HTMLInputElement).checked = !!walk.draft;
+    (document.getElementById('input-content') as HTMLTextAreaElement).value = walk.body || '';
+    (document.getElementById('input-photo-folder') as HTMLInputElement).value = walk.photoFolder || '';
+    (document.getElementById('input-cover') as HTMLInputElement).value = walk.cover || 'cover.webp';
+
+    // 장소 선택 복원
+    selectedPlaceIds = [...(walk.places || [])];
+    renderSelectedPlaces();
+    updateCharAndParaCount();
+  });
+
+  // ==========================================
+  // 4. 방문 장소 칩 렌더링 & 빠른 추가
+  // ==========================================
+  const selectedPlacesContainer = document.getElementById('selected-places-container');
+  const selectedPlacesCount = document.getElementById('selected-places-count');
+
+  function renderSelectedPlaces() {
+    if (!selectedPlacesContainer) return;
+    selectedPlacesContainer.innerHTML = '';
+
+    if (selectedPlacesCount) {
+      selectedPlacesCount.textContent = String(selectedPlaceIds.length);
+    }
+
+    if (selectedPlaceIds.length === 0) {
+      const msg = document.createElement('span');
+      msg.className = 'text-xs text-stone-400 font-serif';
+      msg.textContent = '아래 기존 서가 목록에서 선택하거나 [+ 새 장소 추가하기]를 누르세요.';
+      selectedPlacesContainer.appendChild(msg);
+      return;
+    }
+
+    selectedPlaceIds.forEach((id) => {
+      // 기존 장소 또는 신규 추가 대기 장소에서 이름 조회
+      const existing = existingPlaces.find((p: any) => p.id === id);
+      const pending = pendingNewPlaces.get(id);
+      const name = existing ? existing.name : pending ? pending.name : id;
+      const isPending = !!pending;
+
+      const chip = document.createElement('div');
+      chip.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-serif font-medium border ${
+        isPending
+          ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800'
+          : 'bg-forest-50 text-forest-800 border-forest-200 dark:bg-forest-950 dark:text-forest-200 dark:border-forest-800'
+      }`;
+
+      chip.innerHTML = `
+        <span>📍 ${name}</span>
+        ${isPending ? '<span class="text-[10px] text-amber-600 dark:text-amber-400 font-sans font-bold">(신규)</span>' : ''}
+        <button type="button" data-remove-id="${id}" class="hover:text-red-500 font-bold ml-0.5">✕</button>
+      `;
+
+      chip.querySelector('button')?.addEventListener('click', () => {
+        selectedPlaceIds = selectedPlaceIds.filter((p) => p !== id);
+        renderSelectedPlaces();
+      });
+
+      selectedPlacesContainer.appendChild(chip);
+    });
+  }
+
+  // 기존 서가 장소 빠른 추가 버튼 이벤트
+  document.querySelectorAll('.btn-quick-add-place').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const placeId = btn.getAttribute('data-place-id');
+      if (placeId && !selectedPlaceIds.includes(placeId)) {
+        selectedPlaceIds.push(placeId);
+        renderSelectedPlaces();
+      }
+    });
+  });
+
+  // ==========================================
+  // 5. 새 장소 추가 모달 및 카카오 연동
+  // ==========================================
+  const newPlaceModal = document.getElementById('modal-new-place');
+  const inputKakaoSearch = document.getElementById('input-kakao-search') as HTMLInputElement | null;
+  const kakaoSearchResults = document.getElementById('kakao-search-results');
+  const nearbyWarningBanner = document.getElementById('nearby-warning-banner');
+  const nearbyWarningText = document.getElementById('nearby-warning-text');
+  const btnUseNearbyPlace = document.getElementById('btn-use-nearby-place');
+
+  let kakaoSDKLoaded = false;
+  let kakaoPlacesService: any = null;
+  let kakaoGeocoderService: any = null;
+  let detectedNearbyPlaceId: string | null = null;
+
+  async function initKakaoServices() {
+    if (kakaoSDKLoaded) return;
+    try {
+      const kakao = await loadKakaoSDK();
+      if (kakao && kakao.maps && kakao.maps.services) {
+        kakaoPlacesService = new kakao.maps.services.Places();
+        kakaoGeocoderService = new kakao.maps.services.Geocoder();
+        kakaoSDKLoaded = true;
+      }
+    } catch (e) {
+      console.warn('카카오맵 서비스 로더 알림:', e);
+    }
+  }
+
+  function openNewPlaceModal() {
+    newPlaceModal?.classList.remove('hidden');
+    initKakaoServices();
+  }
+
+  function closeNewPlaceModal() {
+    newPlaceModal?.classList.add('hidden');
+    if (currentMode === 'new-place') {
+      setMode('new-walk');
+    }
+  }
+
+  document.getElementById('btn-toggle-new-place-modal')?.addEventListener('click', openNewPlaceModal);
+  document.getElementById('btn-close-new-place-modal')?.addEventListener('click', closeNewPlaceModal);
+  document.getElementById('btn-cancel-new-place')?.addEventListener('click', closeNewPlaceModal);
+
+  // 카카오 키워드 검색 실행
+  async function searchKakaoKeyword() {
+    const query = inputKakaoSearch?.value.trim();
+    if (!query) return;
+
+    await initKakaoServices();
+    if (!kakaoPlacesService) {
+      alert('카카오맵 서비스를 초기화할 수 없습니다. 키 설정을 확인하세요.');
+      return;
+    }
+
+    kakaoPlacesService.keywordSearch(query, (data: any[], status: any) => {
+      if (status === window.kakao.maps.services.Status.OK) {
+        renderSearchResults(data);
+      } else {
+        if (kakaoSearchResults) {
+          kakaoSearchResults.classList.remove('hidden');
+          kakaoSearchResults.innerHTML = '<div class="text-stone-400 p-2 text-center">검색 결과가 없습니다.</div>';
+        }
+      }
+    });
+  }
+
+  document.getElementById('btn-kakao-search')?.addEventListener('click', searchKakaoKeyword);
+  inputKakaoSearch?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      searchKakaoKeyword();
+    }
+  });
+
+  // 검색 결과 렌더링
+  function renderSearchResults(items: any[]) {
+    if (!kakaoSearchResults) return;
+    kakaoSearchResults.classList.remove('hidden');
+    kakaoSearchResults.innerHTML = '';
+
+    items.slice(0, 5).forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'p-2 rounded-lg hover:bg-forest-50 dark:hover:bg-forest-950/60 cursor-pointer border border-transparent hover:border-forest-200 transition-colors';
+      row.innerHTML = `
+        <div class="font-bold text-stone-900 dark:text-stone-100">${item.place_name}</div>
+        <div class="text-[11px] text-stone-500">${item.road_address_name || item.address_name}</div>
+      `;
+      row.addEventListener('click', () => {
+        applyKakaoPlaceSelection(item);
+      });
+      kakaoSearchResults.appendChild(row);
+    });
+  }
+
+  // 장소 선택 시 폼 자동 완성 및 83개 정규화 & 반경 200m 중복 감지
+  function applyKakaoPlaceSelection(item: any) {
+    const lat = parseFloat(item.y);
+    const lng = parseFloat(item.x);
+    const placeName = item.place_name;
+
+    (document.getElementById('input-place-name') as HTMLInputElement).value = placeName;
+    (document.getElementById('input-place-lat') as HTMLInputElement).value = String(lat);
+    (document.getElementById('input-place-lng') as HTMLInputElement).value = String(lng);
+
+    // 슬러그 자동 생성 (영문 또는 한글 변환 기반)
+    const slugInput = document.getElementById('input-place-slug') as HTMLInputElement;
+    if (!slugInput.value) {
+      slugInput.value = generatePlaceSlug(placeName);
+    }
+
+    kakaoSearchResults?.classList.add('hidden');
+
+    // 1. 역지오코딩을 통한 83개 정규화
+    if (kakaoGeocoderService) {
+      kakaoGeocoderService.coord2RegionCode(lng, lat, (result: any[], status: any) => {
+        if (status === window.kakao.maps.services.Status.OK) {
+          const region = result.find((r) => r.region_type === 'H') || result[0];
+          if (region) {
+            const normalized = normalizeDistrict(
+              region.region_1depth_name,
+              region.region_2depth_name,
+              region.region_3depth_name
+            );
+            if (normalized) {
+              (document.getElementById('select-place-sido') as HTMLSelectElement).value = normalized.sido;
+              (document.getElementById('input-place-sigungu') as HTMLInputElement).value = normalized.sigungu;
+            }
+          }
+        }
+      });
+    }
+
+    // 2. 반경 200m 중복 장소 감지
+    checkNearbyExistingPlaces(lat, lng);
+  }
+
+  function checkNearbyExistingPlaces(lat: number, lng: number) {
+    const nearby = findNearbyPlaces(lat, lng, existingPlaces, 200);
+    if (nearby.length > 0) {
+      const closest = nearby[0];
+      detectedNearbyPlaceId = closest.place.id;
+      if (nearbyWarningBanner && nearbyWarningText) {
+        nearbyWarningBanner.classList.remove('hidden');
+        nearbyWarningText.textContent = `💡 반경 ${closest.distance}m 거리에 이미 서가에 등록된 '${closest.place.name}'이(가) 있습니다. 동일한 장소라면 새로 생성하지 않고 기존 장소를 재방문으로 연결할 수 있습니다.`;
+      }
+    } else {
+      nearbyWarningBanner?.classList.add('hidden');
+      detectedNearbyPlaceId = null;
+    }
+  }
+
+  btnUseNearbyPlace?.addEventListener('click', () => {
+    if (detectedNearbyPlaceId) {
+      if (!selectedPlaceIds.includes(detectedNearbyPlaceId)) {
+        selectedPlaceIds.push(detectedNearbyPlaceId);
+        renderSelectedPlaces();
+      }
+      closeNewPlaceModal();
+    }
+  });
+
+  // HTML5 Geolocation 현재 위치 가져오기
+  document.getElementById('btn-get-current-pos')?.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      alert('이 브라우저는 위치 정보(Geolocation)를 지원하지 않습니다.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        (document.getElementById('input-place-lat') as HTMLInputElement).value = String(lat);
+        (document.getElementById('input-place-lng') as HTMLInputElement).value = String(lng);
+
+        // 좌표를 바탕으로 주소 변환
+        initKakaoServices().then(() => {
+          if (kakaoGeocoderService) {
+            kakaoGeocoderService.coord2RegionCode(lng, lat, (result: any[], status: any) => {
+              if (status === window.kakao.maps.services.Status.OK) {
+                const region = result.find((r) => r.region_type === 'H') || result[0];
+                if (region) {
+                  const placeName = `${region.region_3depth_name} 산책길`;
+                  (document.getElementById('input-place-name') as HTMLInputElement).value = placeName;
+                  const normalized = normalizeDistrict(
+                    region.region_1depth_name,
+                    region.region_2depth_name,
+                    region.region_3depth_name
+                  );
+                  if (normalized) {
+                    (document.getElementById('select-place-sido') as HTMLSelectElement).value = normalized.sido;
+                    (document.getElementById('input-place-sigungu') as HTMLInputElement).value = normalized.sigungu;
+                  }
+                  checkNearbyExistingPlaces(lat, lng);
+                }
+              }
+            });
+          }
+        });
+      },
+      (err) => {
+        alert(`위치 정보를 가져올 수 없습니다: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+
+  function generatePlaceSlug(name: string) {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-가-힣]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 25);
+  }
+
+  // 새 장소 등록 확정 버튼
+  document.getElementById('btn-confirm-new-place')?.addEventListener('click', () => {
+    const name = (document.getElementById('input-place-name') as HTMLInputElement).value.trim();
+    const slug = (document.getElementById('input-place-slug') as HTMLInputElement).value.trim();
+    const latStr = (document.getElementById('input-place-lat') as HTMLInputElement).value.trim();
+    const lngStr = (document.getElementById('input-place-lng') as HTMLInputElement).value.trim();
+    const sido = (document.getElementById('select-place-sido') as HTMLSelectElement).value as any;
+    const sigungu = (document.getElementById('input-place-sigungu') as HTMLInputElement).value.trim();
+    const type = ((document.querySelector('input[name="place-type"]:checked') as HTMLInputElement)?.value || '공원') as any;
+    const tips = (document.getElementById('input-place-tips') as HTMLInputElement).value.trim();
+    const description = (document.getElementById('input-place-desc') as HTMLTextAreaElement).value.trim();
+
+    const facilities: string[] = [];
+    document.querySelectorAll('input[name="place-facility"]:checked').forEach((cb) => {
+      facilities.push((cb as HTMLInputElement).value);
+    });
+
+    if (!name || !slug || !latStr || !lngStr || !sigungu) {
+      alert('장소명, 영문 ID, 위도, 경도, 시군구는 필수 입력 항목입니다.');
+      return;
+    }
+
+    const lat = parseFloat(latStr);
+    const lng = parseFloat(lngStr);
+
+    const newPlaceObj: PlaceInput = {
+      id: slug,
+      name,
+      lat,
+      lng,
+      sido,
+      sigungu,
+      type,
+      facilities,
+      tips,
+      description,
+      hidden: false,
+    };
+
+    pendingNewPlaces.set(slug, newPlaceObj);
+    if (!selectedPlaceIds.includes(slug)) {
+      selectedPlaceIds.push(slug);
+    }
+
+    renderSelectedPlaces();
+    closeNewPlaceModal();
+    alert(`✓ '${name}' 장소가 등록 목록에 추가되었습니다.`);
+  });
+
+  // ==========================================
+  // 6. 에디터 툴바 & 실시간 글자수/미리보기
+  // ==========================================
+  const inputContent = document.getElementById('input-content') as HTMLTextAreaElement | null;
+  const contentWriteWrapper = document.getElementById('content-write-wrapper');
+  const contentPreviewWrapper = document.getElementById('content-preview-wrapper');
+  const btnTabWrite = document.getElementById('btn-tab-write');
+  const btnTabPreview = document.getElementById('btn-tab-preview');
+  const charCount = document.getElementById('char-count');
+  const paraCount = document.getElementById('para-count');
+
+  function updateCharAndParaCount() {
+    const text = inputContent?.value || '';
+    if (charCount) charCount.textContent = String(text.length);
+    if (paraCount) {
+      const paras = text.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
+      paraCount.textContent = String(paras.length);
+    }
+  }
+
+  inputContent?.addEventListener('input', updateCharAndParaCount);
+
+  // 마크다운 빠른 서식 삽입 버튼
+  document.querySelectorAll('.btn-md-insert').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const template = btn.getAttribute('data-md');
+      if (!template || !inputContent) return;
+
+      const start = inputContent.selectionStart;
+      const end = inputContent.selectionEnd;
+      const text = inputContent.value;
+
+      inputContent.value = text.slice(0, start) + template + text.slice(end);
+      inputContent.focus();
+      inputContent.setSelectionRange(start + template.length, start + template.length);
+      updateCharAndParaCount();
+    });
+  });
+
+  // 간단한 클라이언트 마크다운 렌더러
+  function renderMarkdownPreview(raw: string) {
+    if (!raw.trim()) return '<p class="text-stone-400 italic">아직 작성된 내용이 없습니다.</p>';
+    const lines = raw.split('\n');
+    let html = '';
+    let inList = false;
+
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('### ')) {
+        html += `<h3 class="text-lg font-bold font-serif mt-4 mb-2">${escapeHtml(trimmed.slice(4))}</h3>`;
+      } else if (trimmed.startsWith('## ')) {
+        html += `<h2 class="text-xl font-bold font-serif mt-5 mb-2">${escapeHtml(trimmed.slice(3))}</h2>`;
+      } else if (trimmed.startsWith('> ')) {
+        html += `<blockquote class="border-l-4 border-forest-500 pl-3 italic my-3 text-stone-600 dark:text-stone-300">${escapeHtml(trimmed.slice(2))}</blockquote>`;
+      } else if (trimmed === '---') {
+        html += `<hr class="my-4 border-stone-200 dark:border-stone-700" />`;
+      } else if (trimmed.startsWith('- ')) {
+        if (!inList) { html += '<ul class="list-disc pl-5 my-2">'; inList = true; }
+        html += `<li>${escapeHtml(trimmed.slice(2))}</li>`;
+      } else if (trimmed === '') {
+        if (inList) { html += '</ul>'; inList = false; }
+      } else {
+        if (inList) { html += '</ul>'; inList = false; }
+        // 굵게/기울임
+        let p = escapeHtml(line);
+        p = p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        p = p.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        html += `<p class="my-2 leading-relaxed font-serif">${p}</p>`;
+      }
+    });
+
+    if (inList) html += '</ul>';
+    return html;
+  }
+
+  function escapeHtml(text: string) {
+    const div = document.createElement('div');
+    div.innerText = text;
+    return div.innerHTML;
+  }
+
+  btnTabWrite?.addEventListener('click', () => {
+    btnTabWrite.className = 'px-2.5 py-1 rounded-md font-medium bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-2xs';
+    btnTabPreview?.classList.remove('bg-white', 'dark:bg-stone-700', 'text-stone-900', 'dark:text-stone-100', 'shadow-2xs');
+    btnTabPreview?.classList.add('text-stone-500', 'dark:text-stone-400');
+    contentWriteWrapper?.classList.remove('hidden');
+    contentPreviewWrapper?.classList.add('hidden');
+  });
+
+  btnTabPreview?.addEventListener('click', () => {
+    btnTabPreview.className = 'px-2.5 py-1 rounded-md font-medium bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-2xs';
+    btnTabWrite?.classList.remove('bg-white', 'dark:bg-stone-700', 'text-stone-900', 'dark:text-stone-100', 'shadow-2xs');
+    btnTabWrite?.classList.add('text-stone-500', 'dark:text-stone-400');
+    if (contentPreviewWrapper) {
+      contentPreviewWrapper.innerHTML = renderMarkdownPreview(inputContent?.value || '');
+    }
+    contentWriteWrapper?.classList.add('hidden');
+    contentPreviewWrapper?.classList.remove('hidden');
+  });
+
+  // ==========================================
+  // 7. 자동 임시저장 & 복구
+  // ==========================================
+  function saveDraftToStorage() {
+    const draftData = {
+      title: (document.getElementById('input-title') as HTMLInputElement)?.value || '',
+      date: (document.getElementById('input-date') as HTMLInputElement)?.value || '',
+      timeOfDay: (document.getElementById('select-time-of-day') as HTMLSelectElement)?.value || '',
+      weather: (document.getElementById('input-weather') as HTMLInputElement)?.value || '',
+      companions: (document.getElementById('input-companions') as HTMLInputElement)?.value || '',
+      mood: (document.getElementById('input-mood') as HTMLInputElement)?.value || '',
+      tags: (document.getElementById('input-tags') as HTMLInputElement)?.value || '',
+      draft: (document.getElementById('input-draft') as HTMLInputElement)?.checked || false,
+      content: inputContent?.value || '',
+      places: selectedPlaceIds,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(STORAGE_DRAFT, JSON.stringify(draftData));
+  }
+
+  // 오늘 날짜를 기본값으로 설정
+  const todayStr = new Date().toISOString().split('T')[0];
+  const dateInput = document.getElementById('input-date') as HTMLInputElement;
+  if (dateInput && !dateInput.value) {
+    dateInput.value = todayStr;
+  }
+
+  // 임시저장 버튼 수동 클릭
+  document.getElementById('btn-manual-save')?.addEventListener('click', () => {
+    saveDraftToStorage();
+    alert('✓ 브라우저에 현재 작성 내용이 임시 저장되었습니다.');
+  });
+
+  // 15초마다 자동 임시저장
+  setInterval(saveDraftToStorage, 15000);
+
+  // 초기 로드 시 미완성 드래프트 존재 확인
+  const savedDraft = localStorage.getItem(STORAGE_DRAFT);
+  if (savedDraft) {
+    try {
+      const parsed = JSON.parse(savedDraft);
+      if (parsed.title || parsed.content) {
+        // 복구 제안
+        const confirmRestore = confirm(`이전에 작성 중이던 임시 저장본("${parsed.title || '제목 없음'}")이 있습니다. 복구하시겠습니까?`);
+        if (confirmRestore) {
+          (document.getElementById('input-title') as HTMLInputElement).value = parsed.title || '';
+          if (parsed.date) (document.getElementById('input-date') as HTMLInputElement).value = parsed.date;
+          if (parsed.timeOfDay) (document.getElementById('select-time-of-day') as HTMLSelectElement).value = parsed.timeOfDay;
+          if (parsed.weather) (document.getElementById('input-weather') as HTMLInputElement).value = parsed.weather;
+          if (parsed.companions) (document.getElementById('input-companions') as HTMLInputElement).value = parsed.companions;
+          if (parsed.mood) (document.getElementById('input-mood') as HTMLInputElement).value = parsed.mood;
+          if (parsed.tags) (document.getElementById('input-tags') as HTMLInputElement).value = parsed.tags;
+          if (inputContent) inputContent.value = parsed.content || '';
+          if (parsed.places && Array.isArray(parsed.places)) {
+            selectedPlaceIds = parsed.places;
+            renderSelectedPlaces();
+          }
+          updateCharAndParaCount();
+        }
+      }
+    } catch (e) {}
+  }
+
+  // ==========================================
+  // 8. 서가에 기록 꽂기 (GitHub 원자적 커밋)
+  // ==========================================
+  const writeForm = document.getElementById('write-form');
+  const commitModal = document.getElementById('modal-commit-progress');
+  const commitStatusTitle = document.getElementById('commit-status-title');
+  const commitStatusStep = document.getElementById('commit-status-step');
+  const commitSpinner = document.getElementById('commit-spinner');
+  const commitCheckIcon = document.getElementById('commit-check-icon');
+  const commitSuccessActions = document.getElementById('commit-success-actions');
+  const linkCommitView = document.getElementById('link-commit-view') as HTMLAnchorElement | null;
+
+  writeForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // 1. 토큰 확인
+    const pat = localStorage.getItem(STORAGE_PAT);
+    if (!pat || !pat.trim()) {
+      alert('GitHub Personal Access Token이 설정되지 않았습니다. 우측 상단 토큰 설정을 먼저 완료해 주세요.');
+      patModal?.classList.remove('hidden');
+      return;
+    }
+
+    // 2. 유효성 검사
+    const title = (document.getElementById('input-title') as HTMLInputElement).value.trim();
+    const date = (document.getElementById('input-date') as HTMLInputElement).value.trim();
+    const content = inputContent?.value || '';
+
+    if (!title) {
+      alert('산책 제목은 필수입니다.');
+      return;
+    }
+    if (!date) {
+      alert('방문 날짜는 필수입니다.');
+      return;
+    }
+    if (selectedPlaceIds.length === 0) {
+      alert('최소 1개 이상의 방문 장소를 서가에서 연결하거나 새 장소를 추가해 주세요.');
+      return;
+    }
+
+    // 3. 커밋할 파일 목록 패키징
+    const filesToCommit: Array<{ path: string; content: string }> = [];
+
+    // 3-1. 신규 장소 파일들
+    selectedPlaceIds.forEach((placeId) => {
+      if (pendingNewPlaces.has(placeId)) {
+        const placeObj = pendingNewPlaces.get(placeId)!;
+        const placeMarkdown = generatePlaceMarkdown(placeObj);
+        filesToCommit.push({
+          path: `src/content/places/${placeId}.md`,
+          content: placeMarkdown,
+        });
+      }
+    });
+
+    // 3-2. 산책 기록 파일
+    const timeOfDay = (document.getElementById('select-time-of-day') as HTMLSelectElement).value as any;
+    const weather = (document.getElementById('input-weather') as HTMLInputElement).value.trim();
+    const companions = (document.getElementById('input-companions') as HTMLInputElement).value.trim();
+    const mood = (document.getElementById('input-mood') as HTMLInputElement).value.trim();
+    const tagsRaw = (document.getElementById('input-tags') as HTMLInputElement).value.trim();
+    const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : [];
+    const draft = (document.getElementById('input-draft') as HTMLInputElement).checked;
+
+    // 슬러그 결정
+    let walkSlug = '';
+    if (currentMode === 'edit-walk' && selectExistingWalk?.value) {
+      walkSlug = selectExistingWalk.value;
+    } else {
+      const firstPlace = selectedPlaceIds[0];
+      walkSlug = `${date}-${firstPlace}`;
+    }
+
+    const photoFolder = (document.getElementById('input-photo-folder') as HTMLInputElement).value.trim() || walkSlug;
+    const cover = (document.getElementById('input-cover') as HTMLInputElement).value.trim() || 'cover.webp';
+
+    const walkObj: WalkInput = {
+      slug: walkSlug,
+      title,
+      date,
+      timeOfDay,
+      weather,
+      companions,
+      mood,
+      places: selectedPlaceIds,
+      photoFolder,
+      cover,
+      tags,
+      draft,
+      content,
+    };
+
+    const walkMarkdown = generateWalkMarkdown(walkObj);
+    filesToCommit.push({
+      path: `src/content/walks/${walkSlug}.md`,
+      content: walkMarkdown,
+    });
+
+    // 4. 모달 열고 진행 표시
+    commitModal?.classList.remove('hidden');
+    if (commitStatusTitle) commitStatusTitle.textContent = '서가에 보관 중...';
+    if (commitSpinner) commitSpinner.classList.remove('hidden');
+    if (commitCheckIcon) commitCheckIcon.classList.add('hidden');
+    commitSuccessActions?.classList.add('hidden');
+
+    try {
+      const commitMessage = currentMode === 'edit-walk'
+        ? `feat(walks): update walk record "${title}" (${date})`
+        : `feat(walks): add walk record "${title}" (${date})`;
+
+      const result = await atomicCommitFiles(
+        {
+          pat,
+          commitMessage,
+          files: filesToCommit,
+        },
+        (step) => {
+          if (commitStatusStep) commitStatusStep.textContent = step;
+        }
+      );
+
+      // 성공 완료
+      if (commitStatusTitle) commitStatusTitle.textContent = '서가 보관 완료! 🌿';
+      if (commitStatusStep) commitStatusStep.textContent = 'GitHub 커밋 및 Actions 배포가 시작되었습니다.';
+      if (commitSpinner) commitSpinner.classList.add('hidden');
+      if (commitCheckIcon) commitCheckIcon.classList.remove('hidden');
+      if (linkCommitView) linkCommitView.href = result.commitUrl;
+      commitSuccessActions?.classList.remove('hidden');
+
+      // 임시 저장본 삭제
+      localStorage.removeItem(STORAGE_DRAFT);
+    } catch (err: any) {
+      alert(`커밋 중 오류가 발생했습니다: ${err.message}`);
+      commitModal?.classList.add('hidden');
+    }
+  });
+</script>
