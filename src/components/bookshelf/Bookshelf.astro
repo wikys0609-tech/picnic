@@ -1,6 +1,7 @@
 ---
 import type { CollectionEntry } from 'astro:content';
 import BookSpine from './BookSpine.astro';
+import { baseUrl } from '@/lib/utils/url';
 import { MapPin, Flame, Clock } from '@lucide/astro';
 
 interface Props {
@@ -57,9 +58,16 @@ const gyeonggiTiers = chunkShelfTiers(gyeonggiPlaces, 8);
 const incheonTiers = chunkShelfTiers(incheonPlaces, 8);
 const recentTiers = chunkShelfTiers(recentSortedPlaces, 8);
 const countTiers = chunkShelfTiers(countSortedPlaces, 8);
+
+const woodShelfDay = baseUrl('/assets/textures/oak-shelf-day.jpg');
+const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
 ---
 
-<div class="bookshelf-section w-full relative z-10" id="bookshelf-container">
+<div
+  class="bookshelf-section w-full relative z-10"
+  id="bookshelf-container"
+  style={`--bg-shelf-wood: url('${woodShelfDay}'); --bg-shelf-wood-dark: url('${woodShelfNight}');`}
+>
   <!-- 상단 제어 바: 세련된 에디토리얼 글래스 패널 -->
   <div class="p-6 sm:p-8 rounded-2xl bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border border-stone-200/90 dark:border-stone-800 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
     <div>

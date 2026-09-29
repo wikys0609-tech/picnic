@@ -19,54 +19,54 @@ const isRecent = latestWalk
   ? (new Date('2026-09-27').getTime() - new Date(latestWalk.data.date).getTime()) / (1000 * 60 * 60 * 24) <= 7
   : false;
 
-// 장소 ID 기반 결정적 높이 (245px ~ 280px)
+// 장소 ID 기반 결정적 높이 (245px ~ 285px)
 const idHash = place.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-const spineHeight = 245 + (idHash % 36);
+const spineHeight = 248 + (idHash % 34);
 
-// 방문 횟수에 비례하는 두께 (42px ~ 68px)
-let spineWidth = 42;
+// 방문 횟수에 비례하는 두께 (44px ~ 68px)
+let spineWidth = 44;
 if (walkCount === 1) spineWidth = 50;
 else if (walkCount === 2) spineWidth = 58;
 else if (walkCount >= 3) spineWidth = 68;
 
-// 고급 서재 양장본 패브릭 & 금박/은박 팔레트
+// 실사풍 양장본 도록 패브릭 베이스 컬러 및 박(Foil) 종류
 interface SpineTheme {
   bg: string;
-  foil: string;
+  foilClass: string;
   accent: string;
-  ribbon: string;
+  headband: string;
 }
 
 const themeMap: Record<string, SpineTheme> = {
   공원: {
-    bg: '#1E382A', // 깊고 품격 있는 솔숲 그린
-    foil: '#F5E6CA', // 샴페인 웜골드박
-    accent: '#2F523D',
-    ribbon: '#F59E0B',
+    bg: '#183424', // 깊은 브리티시 포레스트 그린 클로스
+    foilClass: 'gold-foil-stamping',
+    accent: '#234C34',
+    headband: '#C5A059',
   },
   동네: {
-    bg: '#752F1F', // 따뜻하고 깊은 테라코타 클로스
-    foil: '#FDF1E2', // 크림 로즈골드박
-    accent: '#96412D',
-    ribbon: '#FBBF24',
+    bg: '#6E2819', // 따스한 빈티지 테라코타 클로스
+    foilClass: 'gold-foil-stamping',
+    accent: '#8C3824',
+    headband: '#D4AF37',
   },
   하천길: {
-    bg: '#1B3142', // 고요하고 지적인 딥 인디고 호수
-    foil: '#E5F0F8', // 실버 플래티넘박
-    accent: '#2A4A62',
-    ribbon: '#38BDF8',
+    bg: '#152938', // 깊은 옥스퍼드 인디고 네이비 클로스
+    foilClass: 'silver-foil-stamping',
+    accent: '#224056',
+    headband: '#9BB8D3',
   },
   산: {
-    bg: '#402919', // 고목과 대지의 앤틱 월넛 브라운
-    foil: '#F5E5C9', // 앤틱 브라스 황동박
-    accent: '#5E3E26',
-    ribbon: '#F59E0B',
+    bg: '#3B2314', // 중후한 앤틱 월넛 가죽/린넨
+    foilClass: 'gold-foil-stamping',
+    accent: '#56351F',
+    headband: '#C5A059',
   },
   기타: {
-    bg: '#36312B', // 단정하고 차분한 차콜 웜 린넨
-    foil: '#EFECE6', // 아이보리 펄박
-    accent: '#4F4840',
-    ribbon: '#D97706',
+    bg: '#302A24', // 차분한 웜 차콜 린넨
+    foilClass: 'silver-foil-stamping',
+    accent: '#473E36',
+    headband: '#B0A396',
   },
 };
 
@@ -78,31 +78,27 @@ const theme = themeMap[type] || themeMap['기타'];
   style={`height: 295px; width: ${spineWidth + 6}px;`}
   data-place-id={place.id}
 >
-  <!-- 7일 이내 최근 방문 실크 리본 북마크 (책 머리에서 자연스럽게 흘러내리는 가름끈) -->
+  <!-- 7일 이내 최근 방문: 책 머리에서 자연스럽게 흘러내리는 실사 실크 가름끈 -->
   {isRecent && (
     <div
-      class="absolute top-1 left-2 z-20 transition-transform duration-300 group-hover:-translate-y-2 pointer-events-none"
+      class="absolute top-2 left-2 z-20 transition-transform duration-300 group-hover:-translate-y-2 pointer-events-none"
       title="최근 7일 이내 다녀온 장소"
     >
       <div
-        class="silk-ribbon w-3 h-8 shadow-md"
-        style={`background: linear-gradient(180deg, #FBBF24 0%, #D97706 100%);`}
+        class="silk-ribbon w-3.5 h-9"
+        style="background: linear-gradient(180deg, #F59E0B 0%, #D97706 60%, #B45309 100%);"
       ></div>
     </div>
   )}
 
-  <!-- 책등 본체 링크 (양장본 도록 스타일) -->
+  <!-- 책등 본체 링크 (실사풍 양장본 도록) -->
   <a
     href={baseUrl(`/places/${place.id}`)}
-    class="book-spine relative block w-full rounded-t-xs transition-all duration-300 ease-out group-hover:-translate-y-5 group-hover:scale-[1.01] group-focus:-translate-y-5 focus:outline-none focus:ring-2 focus:ring-amber-400/80 cursor-pointer overflow-hidden clothbound-texture"
+    class="book-spine book-spine-cloth relative block w-full rounded-t-[5px] transition-all duration-300 ease-out group-hover:-translate-y-5 group-hover:scale-[1.015] group-focus:-translate-y-5 focus:outline-none focus:ring-2 focus:ring-amber-400/80 cursor-pointer overflow-hidden"
     style={`
       height: ${spineHeight}px;
       width: ${spineWidth}px;
       background-color: ${theme.bg};
-      box-shadow: 
-        inset 4px 0 5px rgba(255, 255, 255, 0.2),
-        inset -4px 0 6px rgba(0, 0, 0, 0.45),
-        -5px 8px 18px rgba(20, 14, 8, 0.38);
     `}
     data-place-id={place.id}
     data-place-name={name}
@@ -114,67 +110,87 @@ const theme = themeMap[type] || themeMap['기타'];
     data-type-bg={theme.accent}
     aria-label={`${name} 앨범 펼쳐보기 (${walkCount}편 수록)`}
   >
-    <!-- 원통형 책등 하이라이트 & 림라이트 오버레이 -->
-    <div
-      class="absolute inset-0 pointer-events-none"
-      style="background: linear-gradient(90deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 20%, rgba(0,0,0,0.02) 65%, rgba(0,0,0,0.38) 100%);"
-    ></div>
+    <!-- 책 상단 헤드캡 & 속지/꽃천 (Headcap, Pages & Headband) 실사 디테일 -->
+    <div class="w-full h-3 relative overflow-hidden rounded-t-[4px] border-b border-black/40">
+      <!-- 종이 속지 결 (Layered Page Block) -->
+      <div
+        class="absolute inset-0 bg-[#ECE5D8] dark:bg-[#D0C7B8]"
+        style="background-image: repeating-linear-gradient(90deg, rgba(0,0,0,0.08) 0px, rgba(0,0,0,0.08) 1px, transparent 1px, transparent 3px);"
+      ></div>
+      <!-- 꽃천 (Headband) -->
+      <div
+        class="absolute bottom-0 left-0 right-0 h-1"
+        style={`background: repeating-linear-gradient(90deg, #FFFDF8 0px, #FFFDF8 2px, ${theme.headband} 2px, ${theme.headband} 4px);`}
+      ></div>
+      <!-- 헤드캡 상단 안쪽 그림자 -->
+      <div class="absolute inset-0 shadow-[inset_0_2px_4px_rgba(0,0,0,0.55)] pointer-events-none"></div>
+    </div>
 
-    <!-- 양장본 돋을새김 리브 1 (상단) -->
-    <div class="spine-rib absolute top-3 left-0 right-0"></div>
+    <!-- 책등 내부 콘텐츠 레이아웃 -->
+    <div class="relative z-1 h-[calc(100%-12px)] flex flex-col justify-between items-center py-3.5 px-1.5">
+      <!-- 양장본 돋을새김 리브 1 (상단) -->
+      <div class="w-full flex flex-col pointer-events-none my-0.5">
+        <div class="h-[1px] bg-white/35"></div>
+        <div class="h-[2px] bg-black/25"></div>
+        <div class="h-[1px] bg-black/50"></div>
+      </div>
 
-    <!-- 책등 텍스트 및 서지 정보 레이아웃 -->
-    <div class="relative z-1 h-full flex flex-col justify-between items-center py-5 px-1.5">
-      <!-- 상단 시군구 소형 라벨 (정갈한 금박/은박 음각 레터링) -->
-      <div class="flex flex-col items-center">
+      <!-- 상단 시군구 소형 라벨 (실사풍 금박/은박 음각 레터링) -->
+      <div class="flex flex-col items-center my-1">
         <span
-          class="text-[9.5px] font-serif font-medium tracking-[0.2em] opacity-85 truncate max-w-full text-center leading-none foil-deboss"
-          style={`color: ${theme.foil};`}
+          class={`text-[9.5px] font-serif font-bold tracking-[0.24em] truncate max-w-full text-center leading-none ${theme.foilClass}`}
         >
           {sigungu.split(' ').pop()}
         </span>
       </div>
 
       <!-- 양장본 돋을새김 리브 2 (제목 위) -->
-      <div class="spine-rib w-full my-1"></div>
+      <div class="w-full flex flex-col pointer-events-none my-1">
+        <div class="h-[1px] bg-white/35"></div>
+        <div class="h-[2px] bg-black/25"></div>
+        <div class="h-[1px] bg-black/50"></div>
+      </div>
 
-      <!-- 중앙 세로쓰기 장소명 (Gowun Batang 볼드 & 금박 음각) -->
+      <!-- 중앙 세로쓰기 장소명 (Gowun Batang 볼드 & 금박/은박 프레스 각인) -->
       <div class="flex-1 flex items-center justify-center my-2 overflow-hidden">
         <h3
-          class="writing-vertical font-serif font-bold text-center tracking-[0.26em] line-clamp-1 select-none foil-deboss"
-          style={`
-            color: ${theme.foil};
-            font-size: ${spineWidth >= 58 ? '13.5px' : '12px'};
-          `}
+          class={`writing-vertical font-serif font-bold text-center tracking-[0.28em] line-clamp-1 select-none ${theme.foilClass}`}
+          style={`font-size: ${spineWidth >= 58 ? '14px' : '12.5px'};`}
         >
           {name}
         </h3>
       </div>
 
       <!-- 양장본 돋을새김 리브 3 (제목 아래) -->
-      <div class="spine-rib w-full my-1"></div>
+      <div class="w-full flex flex-col pointer-events-none my-1">
+        <div class="h-[1px] bg-white/35"></div>
+        <div class="h-[2px] bg-black/25"></div>
+        <div class="h-[1px] bg-black/50"></div>
+      </div>
 
       <!-- 하단 권수/장 표시 (우아한 북바인더 금박 인장 메달리온) -->
-      <div class="flex flex-col items-center">
+      <div class="flex flex-col items-center my-1">
         <div
-          class="w-6 h-6 rounded-full border flex items-center justify-center font-serif text-[10px] font-bold foil-deboss"
-          style={`
-            border-color: ${theme.foil}60;
-            color: ${theme.foil};
-            background-color: rgba(0, 0, 0, 0.18);
-          `}
+          class="w-6 h-6 rounded-full border border-amber-300/40 dark:border-amber-200/30 flex items-center justify-center font-serif text-[10.5px] font-bold shadow-inner"
+          style="background: radial-gradient(circle, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.5) 100%);"
         >
-          {walkCount > 0 ? `${walkCount}章` : '新'}
+          <span class={theme.foilClass}>
+            {walkCount > 0 ? `${walkCount}章` : '新'}
+          </span>
         </div>
       </div>
-    </div>
 
-    <!-- 양장본 돋을새김 리브 4 (하단) -->
-    <div class="spine-rib absolute bottom-3 left-0 right-0"></div>
+      <!-- 양장본 돋을새김 리브 4 (하단) -->
+      <div class="w-full flex flex-col pointer-events-none my-0.5">
+        <div class="h-[1px] bg-white/35"></div>
+        <div class="h-[2px] bg-black/25"></div>
+        <div class="h-[1px] bg-black/50"></div>
+      </div>
+    </div>
   </a>
 
   <!-- 책 바닥 선반 접촉 그림자 (Contact Shadow) -->
-  <div class="absolute -bottom-1 left-1 right-1 h-2 bg-black/45 dark:bg-black/80 blur-xs rounded-full pointer-events-none group-hover:scale-75 group-hover:opacity-40 transition-all duration-300"></div>
+  <div class="absolute -bottom-1.5 left-0.5 right-0.5 h-2.5 bg-black/60 dark:bg-black/90 blur-[2px] rounded-full pointer-events-none group-hover:scale-75 group-hover:opacity-40 transition-all duration-300"></div>
 </div>
 
 <script>
