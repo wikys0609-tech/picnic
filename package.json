@@ -7,11 +7,13 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro check && astro build",
+    "prebuild": "node scripts/sync-photos.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "check": "astro check",
     "new": "node scripts/new-walk.mjs",
-    "import": "node scripts/import-csv.mjs"
+    "import": "node scripts/import-csv.mjs",
+    "sync:photos": "node scripts/sync-photos.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.4",
@@ -24,6 +26,8 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
-    "kakao.maps.d.ts": "^0.1.40"
+    "googleapis": "^182.0.0",
+    "kakao.maps.d.ts": "^0.1.40",
+    "sharp": "^0.35.5"
   }
 }

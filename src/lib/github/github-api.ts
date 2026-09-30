@@ -131,112 +131,140 @@ export async function atomicCommitFiles(
     throw new Error('커밋할 파일이 없습니다.');
   }
 
-  // 1. 현재 브랜치의 최신 커밋 SHA 조회
-  notify(`브랜치(${branch})의 최신 커밋 조회 중...`);
-  const refRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${branch}`,
-    { headers }
-  );
+  const MAX_RETRIES = 3;
+  let lastError: Error | null = null;
 
-  if (!refRes.ok) {
-    const errorBody = await refRes.text();
-    throw new Error(`최신 커밋 조회 실패 (${refRes.status}): ${errorBody}`);
-  }
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 1) {
+        notify(`원격 브랜치 변경 감지: 최신 상태를 반영하여 재시도 중 (${attempt}/${MAX_RETRIES})...`);
+        // 잠시 대기 후 재시도
+        await new Promise((resolve) => setTimeout(resolve, attempt * 600));
+      }
 
-  const refData = await refRes.json();
-  const latestCommitSha = refData.object.sha;
+      // 1. 현재 브랜치의 최신 커밋 SHA 조회
+      notify(`브랜치(${branch})의 최신 커밋 조회 중...`);
+      const refRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${branch}`,
+        { headers }
+      );
 
-  // 2. 최신 커밋의 Base Tree SHA 조회
-  notify('기존 파일 트리(Base Tree) 확인 중...');
-  const commitRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`,
-    { headers }
-  );
+      if (!refRes.ok) {
+        const errorBody = await refRes.text();
+        throw new Error(`최신 커밋 조회 실패 (${refRes.status}): ${errorBody}`);
+      }
 
-  if (!commitRes.ok) {
-    const errorBody = await commitRes.text();
-    throw new Error(`커밋 정보 조회 실패 (${commitRes.status}): ${errorBody}`);
-  }
+      const refData = await refRes.json();
+      const latestCommitSha = refData.object.sha;
 
-  const commitData = await commitRes.json();
-  const baseTreeSha = commitData.tree.sha;
+      // 2. 최신 커밋의 Base Tree SHA 조회
+      notify('기존 파일 트리(Base Tree) 확인 중...');
+      const commitRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`,
+        { headers }
+      );
 
-  // 3. 새 파일 트리를 생성 (Git Data Trees API)
-  notify(`${files.length}개 파일 변경사항을 트리로 패키징 중...`);
-  const treePayload = {
-    base_tree: baseTreeSha,
-    tree: files.map((file) => ({
-      path: file.path.replace(/^\//, ''),
-      mode: '100644', // 일반 파일
-      type: 'blob',
-      content: file.content,
-    })),
-  };
+      if (!commitRes.ok) {
+        const errorBody = await commitRes.text();
+        throw new Error(`커밋 정보 조회 실패 (${commitRes.status}): ${errorBody}`);
+      }
 
-  const createTreeRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/git/trees`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(treePayload),
+      const commitData = await commitRes.json();
+      const baseTreeSha = commitData.tree.sha;
+
+      // 3. 새 파일 트리를 생성 (Git Data Trees API)
+      notify(`${files.length}개 파일 변경사항을 트리로 패키징 중...`);
+      const treePayload = {
+        base_tree: baseTreeSha,
+        tree: files.map((file) => ({
+          path: file.path.replace(/^\//, ''),
+          mode: '100644', // 일반 파일
+          type: 'blob',
+          content: file.content,
+        })),
+      };
+
+      const createTreeRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/trees`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(treePayload),
+        }
+      );
+
+      if (!createTreeRes.ok) {
+        const errorBody = await createTreeRes.text();
+        throw new Error(`파일 트리 생성 실패 (${createTreeRes.status}): ${errorBody}`);
+      }
+
+      const newTreeData = await createTreeRes.json();
+      const newTreeSha = newTreeData.sha;
+
+      // 4. 새 커밋 객체 생성 (Git Data Commits API)
+      notify('원자적 커밋 생성 중...');
+      const createCommitPayload = {
+        message: commitMessage,
+        tree: newTreeSha,
+        parents: [latestCommitSha],
+      };
+
+      const createCommitRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/commits`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(createCommitPayload),
+        }
+      );
+
+      if (!createCommitRes.ok) {
+        const errorBody = await createCommitRes.text();
+        throw new Error(`커밋 생성 실패 (${createCommitRes.status}): ${errorBody}`);
+      }
+
+      const newCommitData = await createCommitRes.json();
+      const newCommitSha = newCommitData.sha;
+
+      // 5. 브랜치 참조(Ref) 업데이트 (Fast-forward 푸시)
+      notify(`브랜치(${branch}) 푸시 및 배포 트리거 중...`);
+      const updateRefRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`,
+        {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({
+            sha: newCommitSha,
+            force: false,
+          }),
+        }
+      );
+
+      if (!updateRefRes.ok) {
+        const errorBody = await updateRefRes.text();
+        // 422 상태 코드인 경우(동시 커밋 충돌로 fast-forward 불가) 재시도
+        if (updateRefRes.status === 422 && attempt < MAX_RETRIES) {
+          console.warn(`[GitHub API] 422 Conflict on attempt ${attempt}, retrying with new HEAD...`);
+          continue;
+        }
+        throw new Error(`브랜치 업데이트 실패 (${updateRefRes.status}): ${errorBody}`);
+      }
+
+      notify('저장소 커밋 및 푸시 완료!');
+      return {
+        commitSha: newCommitSha,
+        commitUrl: `https://github.com/${owner}/${repo}/commit/${newCommitSha}`,
+      };
+    } catch (err: any) {
+      lastError = err;
+      if (attempt < MAX_RETRIES && (err.message?.includes('422') || err.message?.includes('fast forward'))) {
+        continue;
+      }
+      break;
     }
-  );
-
-  if (!createTreeRes.ok) {
-    const errorBody = await createTreeRes.text();
-    throw new Error(`파일 트리 생성 실패 (${createTreeRes.status}): ${errorBody}`);
   }
 
-  const newTreeData = await createTreeRes.json();
-  const newTreeSha = newTreeData.sha;
-
-  // 4. 새 커밋 객체 생성 (Git Data Commits API)
-  notify('원자적 커밋 생성 중...');
-  const createCommitPayload = {
-    message: commitMessage,
-    tree: newTreeSha,
-    parents: [latestCommitSha],
-  };
-
-  const createCommitRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/git/commits`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(createCommitPayload),
-    }
+  throw new Error(
+    `원격 main 브랜치와 충돌이 발생하여 커밋하지 못했습니다 (${lastError?.message || '업데이트 실패'}). 잠시 후 다시 시도해 주세요.`
   );
-
-  if (!createCommitRes.ok) {
-    const errorBody = await createCommitRes.text();
-    throw new Error(`커밋 생성 실패 (${createCommitRes.status}): ${errorBody}`);
-  }
-
-  const newCommitData = await createCommitRes.json();
-  const newCommitSha = newCommitData.sha;
-
-  // 5. 브랜치 참조(Ref) 업데이트 (Fast-forward 푸시)
-  notify(`브랜치(${branch}) 푸시 및 배포 트리거 중...`);
-  const updateRefRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`,
-    {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({
-        sha: newCommitSha,
-        force: false,
-      }),
-    }
-  );
-
-  if (!updateRefRes.ok) {
-    const errorBody = await updateRefRes.text();
-    throw new Error(`브랜치 업데이트 실패 (${updateRefRes.status}): ${errorBody}`);
-  }
-
-  notify('저장소 커밋 및 푸시 완료!');
-  return {
-    commitSha: newCommitSha,
-    commitUrl: `https://github.com/${owner}/${repo}/commit/${newCommitSha}`,
-  };
 }

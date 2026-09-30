@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  schedule:
+    # 매일 새벽 3시(KST) / UTC 18:00에 구글 드라이브 새 사진 감지 및 자동 빌드
+    - cron: '0 18 * * *'
   workflow_dispatch:
 
 # Grant GITHUB_TOKEN permissions required for GitHub Pages deployment
@@ -35,9 +38,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Cache synced photos
+        uses: actions/cache@v4
+        with:
+          path: |
+            public/photos
+            .photo-cache.json
+          key: picnic-photos-${{ github.run_id }}
+          restore-keys: |
+            picnic-photos-
+
       - name: Build site with Astro
         env:
           PUBLIC_KAKAO_MAP_KEY: ${{ vars.PUBLIC_KAKAO_MAP_KEY }}
+          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+          GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_ROOT_FOLDER_ID }}
         run: npm run build
 
       - name: Upload Pages Artifact

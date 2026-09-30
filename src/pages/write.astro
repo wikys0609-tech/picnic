@@ -19,6 +19,7 @@ import {
   Save,
   Send,
   Layers,
+  Copy,
   X,
 } from '@lucide/astro';
 
@@ -400,15 +401,29 @@ const initialWalks = allWalks.map((w) => ({
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label for="input-photo-folder" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
-                사진 폴더명
-              </label>
+              <div class="flex items-center justify-between mb-1">
+                <label for="input-photo-folder" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300">
+                  구글 드라이브 사진 폴더명
+                </label>
+                <button
+                  id="btn-copy-photo-folder"
+                  type="button"
+                  title="이 폴더명을 클립보드에 복사"
+                  class="inline-flex items-center gap-1 text-[11px] font-serif font-medium text-forest-700 dark:text-forest-400 hover:text-forest-800 dark:hover:text-forest-300 cursor-pointer transition-colors"
+                >
+                  <Copy class="w-3 h-3" />
+                  <span id="copy-folder-text">폴더명 복사</span>
+                </button>
+              </div>
               <input
                 type="text"
                 id="input-photo-folder"
                 placeholder="예: 2026-09-30-seoul-forest"
-                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
+                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono focus:ring-2 focus:ring-forest-500/50 outline-none"
               />
+              <p class="text-[11px] text-stone-400 mt-1 font-serif">
+                스마트폰 드라이브 앱에서 이 이름으로 폴더를 만들고 사진을 넣으시면 됩니다.
+              </p>
             </div>
 
             <div>
@@ -1048,11 +1063,61 @@ const initialWalks = allWalks.map((w) => ({
       chip.querySelector('button')?.addEventListener('click', () => {
         selectedPlaceIds = selectedPlaceIds.filter((p) => p !== id);
         renderSelectedPlaces();
+        updateAutoPhotoFolder();
       });
 
       selectedPlacesContainer.appendChild(chip);
     });
   }
+
+  // 사진 폴더명 자동 완성 & 원터치 복사 핸들러
+  const inputPhotoFolder = document.getElementById('input-photo-folder') as HTMLInputElement | null;
+  const btnCopyPhotoFolder = document.getElementById('btn-copy-photo-folder');
+  const copyFolderText = document.getElementById('copy-folder-text');
+  let userEditedPhotoFolder = false;
+
+  inputPhotoFolder?.addEventListener('input', () => {
+    userEditedPhotoFolder = true;
+  });
+
+  function updateAutoPhotoFolder() {
+    if (userEditedPhotoFolder && inputPhotoFolder?.value.trim()) return;
+    const dateVal = (document.getElementById('input-date') as HTMLInputElement)?.value || '';
+    const firstPlace = selectedPlaceIds[0] || '';
+    if (dateVal && firstPlace && inputPhotoFolder) {
+      inputPhotoFolder.value = `${dateVal}-${firstPlace}`;
+    }
+  }
+
+  document.getElementById('input-date')?.addEventListener('change', updateAutoPhotoFolder);
+
+  btnCopyPhotoFolder?.addEventListener('click', async () => {
+    updateAutoPhotoFolder();
+    const folderName = inputPhotoFolder?.value.trim() || '';
+    if (!folderName) {
+      alert('복사할 사진 폴더 이름이 비어있습니다. 날짜와 장소를 먼저 선택해 주세요.');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(folderName);
+      if (copyFolderText) {
+        copyFolderText.textContent = '✓ 복사됨!';
+        setTimeout(() => {
+          if (copyFolderText) copyFolderText.textContent = '폴더명 복사';
+        }, 2000);
+      }
+    } catch {
+      inputPhotoFolder?.select();
+      document.execCommand('copy');
+      if (copyFolderText) {
+        copyFolderText.textContent = '✓ 복사됨!';
+        setTimeout(() => {
+          if (copyFolderText) copyFolderText.textContent = '폴더명 복사';
+        }, 2000);
+      }
+    }
+  });
 
   // 기존 서가 장소 빠른 추가 버튼 이벤트
   document.querySelectorAll('.btn-quick-add-place').forEach((btn) => {
@@ -1061,6 +1126,7 @@ const initialWalks = allWalks.map((w) => ({
       if (placeId && !selectedPlaceIds.includes(placeId)) {
         selectedPlaceIds.push(placeId);
         renderSelectedPlaces();
+        updateAutoPhotoFolder();
       }
     });
   });
