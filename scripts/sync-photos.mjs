@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { google } from 'googleapis';
 import sharp from 'sharp';
+import decodeHeic from 'heic-decode';
 
 const CACHE_FILE = path.resolve(process.cwd(), '.photo-cache.json');
 const OUTPUT_DIR = path.resolve(process.cwd(), 'public/photos');
@@ -157,12 +158,12 @@ async function syncPhotos() {
       fs.mkdirSync(folderOutputDir, { recursive: true });
     }
 
-    // 폴더 내 이미지 파일 조회
+    // 폴더 내 이미지 파일 조회 (HEIC, HEIF 포함)
     let images = [];
     try {
       const res = await drive.files.list({
-        q: `'${folder.id}' in parents and mimeType contains 'image/' and trashed = false`,
-        fields: 'files(id, name, md5Checksum, modifiedTime, size)',
+        q: `'${folder.id}' in parents and (mimeType contains 'image/' or name contains '.jpg' or name contains '.png' or name contains '.jpeg' or name contains '.webp' or name contains '.heic' or name contains '.heif' or name contains '.HEIC' or name contains '.HEIF') and trashed = false`,
+        fields: 'files(id, name, mimeType, md5Checksum, modifiedTime, size)',
         pageSize: 100,
       });
       images = res.data.files || [];
@@ -207,9 +208,34 @@ async function syncPhotos() {
 
         const buffer = await streamToBuffer(downloadRes.data);
 
+        // HEIC/HEIF 포맷 여부 판별
+        const isHeic =
+          /\.(heic|heif)$/i.test(file.name) ||
+          file.mimeType?.toLowerCase().includes('heic') ||
+          file.mimeType?.toLowerCase().includes('heif');
+
+        let imageBufferForSharp;
+        let sharpOptions = {};
+
+        if (isHeic) {
+          try {
+            console.log(`   📱 아이폰 HEIC 사진 감지: ${file.name} 디코딩 중...`);
+            const { data, width, height } = await decodeHeic({ buffer });
+            imageBufferForSharp = Buffer.from(data);
+            sharpOptions = {
+              raw: { width, height, channels: 4 },
+            };
+          } catch (heicErr) {
+            console.warn(`   ⚠️ HEIC 디코딩 실패, 기본 버퍼 시도:`, heicErr.message);
+            imageBufferForSharp = buffer;
+          }
+        } else {
+          imageBufferForSharp = buffer;
+        }
+
         // sharp를 통한 리사이징, WebP 변환 및 EXIF/GPS 완전 제거
         // (.withMetadata()를 호출하지 않으므로 Sharp가 모든 EXIF/GPS 메타데이터를 자동 제거)
-        await sharp(buffer)
+        await sharp(imageBufferForSharp, sharpOptions)
           .rotate() // 원본 방향에 맞게 회전 보정
           .resize({
             width: 1600,
@@ -224,7 +250,7 @@ async function syncPhotos() {
         const isCover = file.name.toLowerCase().startsWith('cover.') || i === 0;
         const coverFilePath = path.join(folderOutputDir, 'cover.webp');
         if (isCover && (!fs.existsSync(coverFilePath) || file.name.toLowerCase().startsWith('cover.'))) {
-          await sharp(buffer)
+          await sharp(imageBufferForSharp, sharpOptions)
             .rotate()
             .resize({
               width: 800,

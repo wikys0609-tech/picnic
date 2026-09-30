@@ -1,11 +1,10 @@
 ---
 import { baseUrl } from '@/lib/utils/url';
 import { ZoomIn, Camera } from '@lucide/astro';
-import fs from 'node:fs';
-import path from 'node:path';
 
 interface Props {
   photoFolder?: string;
+  date?: string;
   cover?: string;
   captions?: Record<string, string>;
   title: string;
@@ -13,33 +12,23 @@ interface Props {
 
 const {
   photoFolder,
+  date,
   cover = 'cover.webp',
   captions = {},
   title,
 } = Astro.props;
 
-// 사진 목록 구성
-const rawList = cover ? [cover, ...Object.keys(captions).filter((k) => k !== cover)] : Object.keys(captions);
+import { resolveWalkPhotos } from '@/lib/content/photo-resolver';
 
-// 실제 로컬 디렉터리에 존재하는 사진 파일만 선별
-const photoList = photoFolder
-  ? rawList.filter((filename) => {
-      try {
-        const localPath = path.join(process.cwd(), 'public', 'photos', photoFolder, filename);
-        return fs.existsSync(localPath);
-      } catch (e) {
-        return false;
-      }
-    })
-  : [];
+const { folderName, photoFiles } = resolveWalkPhotos(photoFolder, date, cover);
 ---
 
-{photoFolder && (
+{folderName && (
   <div class="my-8 album-photo-gallery">
-    {photoList.length > 0 ? (
+    {photoFiles.length > 0 ? (
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
-        {photoList.map((filename) => {
-          const fullUrl = baseUrl(`/photos/${photoFolder}/${filename}`);
+        {photoFiles.map((filename) => {
+          const fullUrl = baseUrl(`/photos/${folderName}/${filename}`);
           const caption = captions[filename] || title;
           return (
             <div class="relative transition-transform duration-300 hover:scale-[1.015]">

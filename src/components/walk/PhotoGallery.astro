@@ -4,6 +4,7 @@ import { ZoomIn, X } from '@lucide/astro';
 
 interface Props {
   photoFolder?: string;
+  date?: string;
   cover?: string;
   captions?: Record<string, string>;
   title: string;
@@ -11,35 +12,22 @@ interface Props {
 
 const {
   photoFolder,
+  date,
   cover = 'cover.webp',
   captions = {},
   title,
 } = Astro.props;
 
-import fs from 'node:fs';
-import path from 'node:path';
+import { resolveWalkPhotos } from '@/lib/content/photo-resolver';
 
-// cover 사진 및 captions에 등록된 사진 목록
-const rawList = cover ? [cover, ...Object.keys(captions).filter((k) => k !== cover)] : Object.keys(captions);
-
-// 실제 로컬 디렉터리에 존재하는 사진 파일만 선별하여 불필요한 브라우저 404 요청 방지
-const photoList = photoFolder
-  ? rawList.filter((filename) => {
-      try {
-        const localPath = path.join(process.cwd(), 'public', 'photos', photoFolder, filename);
-        return fs.existsSync(localPath);
-      } catch (e) {
-        return false;
-      }
-    })
-  : [];
+const { folderName, photoFiles } = resolveWalkPhotos(photoFolder, date, cover);
 ---
 
-{photoFolder && photoList.length > 0 ? (
+{folderName && photoFiles.length > 0 ? (
   <div class="my-8">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {photoList.map((filename) => {
-        const fullUrl = baseUrl(`/photos/${photoFolder}/${filename}`);
+      {photoFiles.map((filename) => {
+        const fullUrl = baseUrl(`/photos/${folderName}/${filename}`);
         const caption = captions[filename] || title;
         return (
           <figure class="group relative overflow-hidden rounded-xl bg-paper-200 dark:bg-night-800 border border-paper-300 dark:border-night-700">

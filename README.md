@@ -81,6 +81,29 @@ npm run build
   2. Repository access: `wikys0609-tech/picnic` 선택
   3. Permissions: **Contents: Read and write** 선택 후 발급
 
+### [ ] 4. 구글 드라이브 사진 파이프라인 설정 (Phase 5 사진 동기화 시)
+1. **Google Cloud 프로젝트 생성**:
+   - [Google Cloud Console](https://console.cloud.google.com/) 접속 후 새 프로젝트 생성 (예: `picnic-photo-pipeline`)
+2. **Google Drive API 활성화**:
+   - 좌측 메뉴 **[API 및 서비스] > [라이브러리]**에서 `Google Drive API` 검색 후 **[사용]** 클릭
+3. **서비스 계정 생성 및 JSON 키 발급**:
+   - 좌측 메뉴 **[사용자 인증 정보] > [+ 사용자 인증 정보 만들기] > [서비스 계정]** 선택
+   - 서비스 계정 생성 후 이메일(예: `picnic-bot@...iam.gserviceaccount.com`) 클릭
+   - **[키] > [키 추가] > [새 키 만들기] > JSON** 선택 후 다운로드 (서비스 계정 이메일 복사)
+4. **구글 드라이브 최상위 폴더 생성 및 공유**:
+   - [Google Drive](https://drive.google.com/)에서 최상위 사진 저장소 폴더 생성 (예: `소풍_사진저장소`)
+   - 해당 폴더 우클릭 > **[공유]** > 서비스 계정 이메일 입력 후 권한을 **[뷰어]**로 설정하여 공유
+   - 📌 **중요**: **산책별 사진 폴더(예: `2026-09-20-seoul-forest` 또는 `2026-09-20`)는 반드시 이 최상위 폴더 안에 만듭니다.**
+   - 브라우저 주소창 URL의 `folders/` 뒤 영문/숫자 문자열이 **Root Folder ID**입니다.
+5. **GitHub Secrets 등록**:
+   - 저장소 **Settings > Secrets and variables > Actions > Secrets** 탭 진입
+   - `GDRIVE_ROOT_FOLDER_ID`: 위 4번에서 복사한 루트 폴더 ID 등록
+   - `GDRIVE_SERVICE_ACCOUNT_JSON`: 위 3번에서 다운로드받은 JSON 파일의 내용 전체를 복사하여 등록
+
+---
+
+> 🔒 **공개 저장소와 사생활 안내**: 본 저장소는 공개(Public) 저장소이므로, 장소 데이터의 `hidden: true` 설정은 사이트 화면(전체 지도 및 미니맵)에서만 마커가 숨겨지며, GitHub 저장소 소스 파일(마크다운)에는 입력된 좌표가 그대로 남습니다. 필요 시 사적 공간은 대략적인 인근 공공장소 좌표로 등록하시는 것을 권장합니다.
+
 ---
 
 ## 📂 프로젝트 구조
