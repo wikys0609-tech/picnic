@@ -1,0 +1,18 @@
+{
+  "syncedAt": "2026-10-01T14:32:15.338Z",
+  "hasCredentials": false,
+  "clientEmail": null,
+  "rootFolderIdInput": null,
+  "actualRootId": null,
+  "foldersFound": [],
+  "allAccessibleFolders": [],
+  "totalDownloaded": 0,
+  "totalCached": 0,
+  "totalErrors": 0,
+  "logs": [
+    "\n💡 [안내] 구글 드라이브 연동 설정이 없습니다:",
+    "   - GDRIVE_SERVICE_ACCOUNT_JSON 미설정",
+    "   - GDRIVE_ROOT_FOLDER_ID 미설정",
+    "   사진 동기화를 건너뛰고 기존 로컬 사진으로 빌드를 계속합니다.\n"
+  ]
+}

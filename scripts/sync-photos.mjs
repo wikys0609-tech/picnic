@@ -107,11 +107,42 @@ async function syncPhotos() {
   const credentials = loadCredentials();
   const rootFolderId = process.env.GDRIVE_ROOT_FOLDER_ID?.trim();
 
+  const debugInfo = {
+    syncedAt: new Date().toISOString(),
+    hasCredentials: !!credentials,
+    clientEmail: credentials?.client_email || null,
+    rootFolderIdInput: rootFolderId || null,
+    actualRootId: null,
+    foldersFound: [],
+    allAccessibleFolders: [],
+    totalDownloaded: 0,
+    totalCached: 0,
+    totalErrors: 0,
+    logs: [],
+  };
+
+  const addLog = (msg) => {
+    console.log(msg);
+    debugInfo.logs.push(msg);
+  };
+
+  const writeDebugInfo = () => {
+    try {
+      if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+      fs.writeFileSync(
+        path.resolve(process.cwd(), 'public', 'photos-debug.json'),
+        JSON.stringify(debugInfo, null, 2),
+        'utf8'
+      );
+    } catch {}
+  };
+
   if (!credentials || !rootFolderId) {
-    console.log('\n💡 [안내] 구글 드라이브 연동 설정이 없습니다:');
-    if (!credentials) console.log('   - GDRIVE_SERVICE_ACCOUNT_JSON 미설정');
-    if (!rootFolderId) console.log('   - GDRIVE_ROOT_FOLDER_ID 미설정');
-    console.log('   사진 동기화를 건너뛰고 기존 로컬 사진으로 빌드를 계속합니다.\n');
+    addLog('\n💡 [안내] 구글 드라이브 연동 설정이 없습니다:');
+    if (!credentials) addLog('   - GDRIVE_SERVICE_ACCOUNT_JSON 미설정');
+    if (!rootFolderId) addLog('   - GDRIVE_ROOT_FOLDER_ID 미설정');
+    addLog('   사진 동기화를 건너뛰고 기존 로컬 사진으로 빌드를 계속합니다.\n');
+    writeDebugInfo();
     return;
   }
 
@@ -136,45 +167,111 @@ async function syncPhotos() {
     const rootCheck = await drive.files.get({
       fileId: actualRootId,
       fields: 'id, name, mimeType',
+      supportsAllDrives: true,
     });
-    console.log(`📁 루트 폴더 확인: "${rootCheck.data.name}" (${actualRootId})`);
+    addLog(`📁 루트 폴더 확인: "${rootCheck.data.name}" (${actualRootId})`);
+    debugInfo.actualRootId = actualRootId;
   } catch (err) {
+    addLog(`⚠️ ID로 폴더 확인 실패 (${err.message}). 폴더명 또는 전체 접근 가능 폴더 검색 시도...`);
     // 만약 ID 직접 조회가 실패한 경우, 폴더 이름으로 검색 시도 (사용자가 폴더명을 등록했을 때 대비)
     try {
       const searchRes = await drive.files.list({
         q: `name = '${actualRootId.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
         fields: 'files(id, name)',
-        pageSize: 5,
+        pageSize: 10,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
       if (searchRes.data.files && searchRes.data.files.length > 0) {
         const found = searchRes.data.files[0];
-        console.log(`📁 폴더명 "${actualRootId}"에 해당하는 Google Drive 폴더 ID(${found.id})를 자동 탐색했습니다.`);
+        addLog(`📁 폴더명 "${actualRootId}"에 해당하는 Google Drive 폴더 ID(${found.id})를 자동 탐색했습니다.`);
         actualRootId = found.id;
+        debugInfo.actualRootId = actualRootId;
       } else {
-        console.warn(`⚠️ 루트 폴더 ID/이름("${actualRootId}")을 찾을 수 없습니다: ${err.message}`);
+        addLog(`⚠️ 루트 폴더 ID/이름("${actualRootId}")을 찾을 수 없습니다: ${err.message}`);
       }
     } catch (searchErr) {
-      console.warn(`⚠️ 루트 폴더 탐색 실패: ${searchErr.message}`);
+      addLog(`⚠️ 루트 폴더 탐색 실패: ${searchErr.message}`);
     }
   }
 
-  console.log(`\n📁 루트 폴더(${actualRootId})의 서브폴더 검색 중...`);
+  addLog(`\n📁 루트 폴더(${actualRootId})의 서브폴더 검색 중...`);
 
-  // 루트 폴더 내의 산책별 서브폴더 목록 조회
+  // 서비스 계정이 접근 가능한 모든 폴더 목록 수집 (진단 및 매칭 보강용)
+  try {
+    const allAccessible = await drive.files.list({
+      q: `mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: 'files(id, name, parents)',
+      pageSize: 50,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    const accList = allAccessible.data.files || [];
+    debugInfo.allAccessibleFolders = accList.map(f => `${f.name} (${f.id})`);
+    addLog(`ℹ️ 서비스 계정 접근 가능 폴더: ${accList.map(f => f.name).join(', ') || '없음'}`);
+  } catch (accErr) {
+    addLog(`⚠️ 접근 가능 폴더 목록 조회 실패: ${accErr.message}`);
+  }
+
+  // 1. 루트 폴더 내의 산책별 서브폴더 목록 조회
   let folders = [];
   try {
     const res = await drive.files.list({
       q: `'${actualRootId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)',
       pageSize: 100,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
     });
     folders = res.data.files || [];
   } catch (err) {
-    console.error('❌ 구글 드라이브 폴더 목록 조회 실패:', err.message);
-    return;
+    addLog(`❌ 루트 폴더의 서브폴더 목록 조회 실패: ${err.message}`);
   }
 
-  console.log(`✓ 총 ${folders.length}개의 산책 사진 폴더를 찾았습니다.\n`);
+  // 2. 만약 서브폴더가 없고, 접근 가능한 폴더 중에 자식 폴더나 seoul-forest 등이 있다면 후보에 추가
+  if (folders.length === 0 && debugInfo.allAccessibleFolders.length > 0) {
+    try {
+      const allAccessible = await drive.files.list({
+        q: `mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: 'files(id, name, parents)',
+        pageSize: 50,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      });
+      const candidates = (allAccessible.data.files || []).filter(
+        f => f.id !== actualRootId && f.name !== 'picnic-photos'
+      );
+      if (candidates.length > 0) {
+        addLog(`💡 접근 가능한 폴더 중 서브폴더 감지: ${candidates.map(c => c.name).join(', ')}`);
+        folders = candidates;
+      }
+    } catch {}
+  }
+
+  // 3. 여전히 폴더가 없다면, 루트 폴더 자체에 사진이 바로 들어있는지 확인
+  if (folders.length === 0) {
+    try {
+      const rootImages = await drive.files.list({
+        q: `'${actualRootId}' in parents and (mimeType contains 'image/' or name contains '.jpg' or name contains '.png' or name contains '.jpeg' or name contains '.webp' or name contains '.heic' or name contains '.heif') and trashed = false`,
+        fields: 'files(id, name)',
+        pageSize: 10,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      });
+      if (rootImages.data.files && rootImages.data.files.length > 0) {
+        let rootName = 'photos';
+        try {
+          const rootInfo = await drive.files.get({ fileId: actualRootId, fields: 'name', supportsAllDrives: true });
+          if (rootInfo.data.name) rootName = rootInfo.data.name;
+        } catch {}
+        addLog(`📁 루트 폴더(${rootName})에 직접 ${rootImages.data.files.length}장의 사진이 존재합니다.`);
+        folders = [{ id: actualRootId, name: rootName }];
+      }
+    } catch {}
+  }
+
+  debugInfo.foldersFound = folders.map(f => f.name);
+  addLog(`✓ 총 ${folders.length}개의 산책 사진 폴더를 찾았습니다.\n`);
 
   let totalDownloaded = 0;
   let totalCached = 0;
@@ -194,17 +291,19 @@ async function syncPhotos() {
         q: `'${folder.id}' in parents and (mimeType contains 'image/' or name contains '.jpg' or name contains '.png' or name contains '.jpeg' or name contains '.webp' or name contains '.heic' or name contains '.heif' or name contains '.HEIC' or name contains '.HEIF') and trashed = false`,
         fields: 'files(id, name, mimeType, md5Checksum, modifiedTime, size)',
         pageSize: 100,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
       images = res.data.files || [];
     } catch (err) {
-      console.warn(`⚠️ [${folderName}] 사진 목록 조회 실패:`, err.message);
+      addLog(`⚠️ [${folderName}] 사진 목록 조회 실패: ${err.message}`);
       totalErrors++;
       continue;
     }
 
     if (images.length === 0) continue;
 
-    console.log(`📸 [${folderName}] ${images.length}개 사진 동기화 확인...`);
+    addLog(`📸 [${folderName}] ${images.length}개 사진 동기화 확인...`);
 
     // 파일 이름순 정렬
     images.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
@@ -231,7 +330,7 @@ async function syncPhotos() {
       // 새 파일 또는 변경된 파일 다운로드
       try {
         const downloadRes = await drive.files.get(
-          { fileId: file.id, alt: 'media' },
+          { fileId: file.id, alt: 'media', supportsAllDrives: true },
           { responseType: 'stream' }
         );
 
@@ -299,9 +398,9 @@ async function syncPhotos() {
         };
 
         totalDownloaded++;
-        console.log(`   ✓ 변환 완료: ${targetFileName} (1600px WebP, EXIF 제거됨)`);
+        addLog(`   ✓ 변환 완료: ${targetFileName} (1600px WebP, EXIF 제거됨)`);
       } catch (err) {
-        console.warn(`   ❌ 변환 실패 (${file.name}):`, err.message);
+        addLog(`   ❌ 변환 실패 (${file.name}): ${err.message}`);
         totalErrors++;
       }
     }
@@ -309,18 +408,30 @@ async function syncPhotos() {
 
   saveCache(cache);
 
-  console.log('\n==========================================');
-  console.log(`🎉 동기화 완료:`);
-  console.log(`   - 신규 다운로드/변환: ${totalDownloaded}장`);
-  console.log(`   - 캐시 유지(스킵): ${totalCached}장`);
+  debugInfo.totalDownloaded = totalDownloaded;
+  debugInfo.totalCached = totalCached;
+  debugInfo.totalErrors = totalErrors;
+  writeDebugInfo();
+
+  addLog('\n==========================================');
+  addLog(`🎉 동기화 완료:`);
+  addLog(`   - 신규 다운로드/변환: ${totalDownloaded}장`);
+  addLog(`   - 캐시 유지(스킵): ${totalCached}장`);
   if (totalErrors > 0) {
-    console.log(`   - 처리 실패: ${totalErrors}건`);
+    addLog(`   - 처리 실패: ${totalErrors}건`);
   }
-  console.log('==========================================\n');
+  addLog('==========================================\n');
 }
 
 syncPhotos().catch((err) => {
   console.error('❌ 사진 동기화 프로세스 오류:', err);
+  try {
+    fs.writeFileSync(
+      path.resolve(process.cwd(), 'public', 'photos-debug.json'),
+      JSON.stringify({ fatalError: err.message, stack: err.stack }, null, 2),
+      'utf8'
+    );
+  } catch {}
   // 빌드가 중단되지 않도록 경고만 출력하고 정상 종료
   process.exit(0);
 });
