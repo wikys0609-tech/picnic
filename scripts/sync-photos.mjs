@@ -129,13 +129,42 @@ async function syncPhotos() {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   }
 
-  console.log(`\n📁 루트 폴더(${rootFolderId})의 서브폴더 검색 중...`);
+  let actualRootId = rootFolderId;
+
+  // 루트 폴더 유효성 검사 및 폴더명/ID 자동 해결
+  try {
+    const rootCheck = await drive.files.get({
+      fileId: actualRootId,
+      fields: 'id, name, mimeType',
+    });
+    console.log(`📁 루트 폴더 확인: "${rootCheck.data.name}" (${actualRootId})`);
+  } catch (err) {
+    // 만약 ID 직접 조회가 실패한 경우, 폴더 이름으로 검색 시도 (사용자가 폴더명을 등록했을 때 대비)
+    try {
+      const searchRes = await drive.files.list({
+        q: `name = '${actualRootId.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: 'files(id, name)',
+        pageSize: 5,
+      });
+      if (searchRes.data.files && searchRes.data.files.length > 0) {
+        const found = searchRes.data.files[0];
+        console.log(`📁 폴더명 "${actualRootId}"에 해당하는 Google Drive 폴더 ID(${found.id})를 자동 탐색했습니다.`);
+        actualRootId = found.id;
+      } else {
+        console.warn(`⚠️ 루트 폴더 ID/이름("${actualRootId}")을 찾을 수 없습니다: ${err.message}`);
+      }
+    } catch (searchErr) {
+      console.warn(`⚠️ 루트 폴더 탐색 실패: ${searchErr.message}`);
+    }
+  }
+
+  console.log(`\n📁 루트 폴더(${actualRootId})의 서브폴더 검색 중...`);
 
   // 루트 폴더 내의 산책별 서브폴더 목록 조회
   let folders = [];
   try {
     const res = await drive.files.list({
-      q: `'${rootFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      q: `'${actualRootId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)',
       pageSize: 100,
     });

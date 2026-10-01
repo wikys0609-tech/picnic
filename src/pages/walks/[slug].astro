@@ -167,7 +167,7 @@ const coursePlaces: MapPlace[] = resolvedPlaces.map((place) => ({
 
     <!-- 대표 이미지 커버 -->
     <div class="mb-10">
-      <WalkCover photoFolder={photoFolder} date={date} cover={cover} title={title} aspect="wide" />
+      <WalkCover photoFolder={photoFolder} date={date} cover={cover} places={places} title={title} aspect="wide" />
     </div>
 
     <!-- 본문 에세이 (산문집 감성 타이포그래피) -->
@@ -176,7 +176,7 @@ const coursePlaces: MapPlace[] = resolvedPlaces.map((place) => ({
     </div>
 
     <!-- 사진 갤러리 (캡션 및 라이트박스 지원) -->
-    <PhotoGallery photoFolder={photoFolder} date={date} cover={cover} captions={captions} title={title} />
+    <PhotoGallery photoFolder={photoFolder} date={date} cover={cover} places={places} captions={captions} title={title} />
 
     <!-- 산책 코스 인터랙티브 미니맵 (카카오맵 연동) -->
     <WalkMiniMap places={coursePlaces} route={walk.data.route} walkTitle={title} />
