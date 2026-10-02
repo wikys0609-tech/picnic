@@ -23,7 +23,7 @@ export const SEOUL_DISTRICTS: string[] = [
 ];
 
 export const INCHEON_DISTRICTS_2026: string[] = [
-  '제물포구', '영종구', '미추홀구', '연수구', '남동구', '부평구', '계양구', '서구', '검단구',
+  '제물포구', '영종구', '미추홀구', '연수구', '남동구', '부평구', '계양구', '서해구', '검단구',
   '강화군', '옹진군'
 ];
 
@@ -55,9 +55,9 @@ const INCHEON_YEONGJONG_KEYWORDS = [
   '영종', '운서', '운남', '운북', '중산', '을왕', '남북', '덕교', '무의', '용유'
 ];
 
-// 검단구 대상 법정동/행정동 키워드
+// 검단구 대상 법정동/행정동 키워드 (아라동 포함)
 const INCHEON_GEOMDAN_KEYWORDS = [
-  '검단', '원당', '당하', '마전', '불로', '오류', '왕길', '대곡', '금곡'
+  '검단', '원당', '당하', '마전', '불로', '오류', '왕길', '대곡', '금곡', '아라'
 ];
 
 // 부천시 일반구 동 매핑
@@ -76,16 +76,18 @@ const HWASEONG_DISTRICT_MAP: Record<string, string[]> = {
 };
 
 /**
- * 카카오 역지오코딩 주소 문자열로부터 수도권 83개 규격 (sido, sigungu)으로 정규화
+ * 카카오 역지오코딩 주소 문자열 및 좌표로부터 수도권 83개 규격 (sido, sigungu)으로 정규화
  * 
  * @param region1 시·도 (예: 서울특별시, 경기도, 인천광역시)
- * @param region2 시·군·구 (예: 종로구, 수원시 영통구, 부천시, 서구, 화성시)
- * @param region3 읍·면·동 (예: 혜화동, 송도동, 원미동, 동탄동, 청라동)
+ * @param region2 시·군·구 (예: 종로구, 수원시 영통구, 부천시, 서구, 서해구, 중구)
+ * @param region3 읍·면·동 (예: 혜화동, 송도동, 원미동, 동탄동, 청라동, 아라동)
+ * @param coords 옵션: { lat, lng } 좌표 (카카오 행정동 갱신 지연 시 경인아라뱃길/도서지역 경계 정밀 판별)
  */
 export function normalizeDistrict(
   region1: string,
   region2: string,
-  region3: string = ''
+  region3: string = '',
+  coords?: { lat: number; lng: number }
 ): { sido: '서울특별시' | '경기도' | '인천광역시'; sigungu: string } | null {
   // 1. 시·도 정규화
   let sido: '서울특별시' | '경기도' | '인천광역시' | null = null;
@@ -105,23 +107,31 @@ export function normalizeDistrict(
     return { sido, sigungu: r2 || '종로구' };
   }
 
-  // 3. 인천광역시 (2026 개편 11개 구·군)
+  // 3. 인천광역시 (2026 개편 11개 구·군 - 제물포구, 영종구, 서해구, 검단구 등)
   if (sido === '인천광역시') {
     // 중구 또는 동구인 경우 -> 영종구 or 제물포구 판별 (남동구 제외)
     const isJungOrDong = (r2 === '중구' || r2 === '동구' || /^([^\w\s]+\s+)?(중구|동구)$/.test(r2)) && !r2.includes('남동구');
     if (isJungOrDong) {
-      const isYeongjong = INCHEON_YEONGJONG_KEYWORDS.some(k => fullAddress.includes(k));
-      return { sido, sigungu: isYeongjong ? '영종구' : '제물포구' };
+      const isYeongjongByKeyword = INCHEON_YEONGJONG_KEYWORDS.some(k => fullAddress.includes(k));
+      const isYeongjongByCoord = coords ? coords.lng < 126.58 : false;
+      return { sido, sigungu: (isYeongjongByKeyword || isYeongjongByCoord) ? '영종구' : '제물포구' };
     }
 
-    // 서구인 경우 -> 검단구 or 서구 판별 (강서구 등 타 지역 방어)
-    const isSeoGu = r2 === '서구' || /^([^\w\s]+\s+)?서구$/.test(r2);
-    if (isSeoGu) {
-      const isGeomdan = INCHEON_GEOMDAN_KEYWORDS.some(k => fullAddress.includes(k));
-      return { sido, sigungu: isGeomdan ? '검단구' : '서구' };
+    // 서구 또는 서해구인 경우 (카카오 맵 API가 "서구"를 반환하든 "서해구"를 반환하든 대응)
+    const isSeoOrSeohae = r2.includes('서구') || r2.includes('서해구');
+    if (isSeoOrSeohae && !r2.includes('강서구')) {
+      const isGeomdanByKeyword = INCHEON_GEOMDAN_KEYWORDS.some(k => fullAddress.includes(k));
+      // 경인아라뱃길 기준 위도 (lat > 37.575는 아라뱃길 이북인 검단구)
+      const isGeomdanByCoord = coords ? coords.lat > 37.575 : false;
+      return { sido, sigungu: (isGeomdanByKeyword || isGeomdanByCoord) ? '검단구' : '서해구' };
     }
 
-    // 기존 구/군 매칭 (남동구, 미추홀구, 연수구, 부평구, 계양구, 강화군, 옹진군)
+    // 검단구로 직접 들어온 경우
+    if (r2.includes('검단')) {
+      return { sido, sigungu: '검단구' };
+    }
+
+    // 기존 구/군 매칭 (남동구, 미추홀구, 연수구, 부평구, 계양구, 강화군, 옹진군, 서해구, 제물포구, 영종구)
     const matched = INCHEON_DISTRICTS_2026.find(d => r2.includes(d));
     if (matched) return { sido, sigungu: matched };
 

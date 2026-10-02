@@ -41,7 +41,7 @@ const INCHEON_YEONGJONG_KEYWORDS = [
   '영종', '운서', '운남', '운북', '중산', '을왕', '남북', '덕교', '무의', '용유'
 ];
 const INCHEON_GEOMDAN_KEYWORDS = [
-  '검단', '원당', '당하', '마전', '불로', '오류', '왕길', '대곡', '금곡'
+  '검단', '원당', '당하', '마전', '불로', '오류', '왕길', '대곡', '금곡', '아라'
 ];
 
 // 부천시 일반구 동 매핑
@@ -66,7 +66,7 @@ const SEOUL_DISTRICTS = [
 ];
 
 const INCHEON_DISTRICTS = [
-  '제물포구', '영종구', '미추홀구', '연수구', '남동구', '부평구', '계양구', '서구', '검단구',
+  '제물포구', '영종구', '미추홀구', '연수구', '남동구', '부평구', '계양구', '서해구', '검단구',
   '강화군', '옹진군'
 ];
 
@@ -98,9 +98,10 @@ function normalizeFeatureDistrict(sido, sggnm, adm_nm) {
       const isYeongjong = INCHEON_YEONGJONG_KEYWORDS.some(k => fullAddress.includes(k));
       return isYeongjong ? '영종구' : '제물포구';
     }
-    if (sggnm === '서구') {
+    // 서구인 경우 -> 검단구 or 서해구 판별
+    if (sggnm === '서구' || sggnm === '서해구') {
       const isGeomdan = INCHEON_GEOMDAN_KEYWORDS.some(k => fullAddress.includes(k));
-      return isGeomdan ? '검단구' : '서구';
+      return isGeomdan ? '검단구' : '서해구';
     }
     const matched = INCHEON_DISTRICTS.find(d => sggnm.includes(d));
     return matched || sggnm;
@@ -236,7 +237,7 @@ async function main() {
     // 경계 단순화 (0.001도 ≈ 100m 정밀도, 웹 렌더링 초고속 최적화)
     let simplified = unified;
     try {
-      simplified = turf.simplify(unified, { tolerance: 0.0012, highQuality: false });
+      simplified = turf.simplify(unified, { tolerance: 0.0008, highQuality: true });
     } catch {}
 
     // 중심 좌표 계산

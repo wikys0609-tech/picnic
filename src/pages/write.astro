@@ -1254,7 +1254,8 @@ const initialWalks = allWalks.map((w) => ({
             const normalized = normalizeDistrict(
               region.region_1depth_name,
               region.region_2depth_name,
-              region.region_3depth_name
+              region.region_3depth_name,
+              { lat, lng }
             );
             if (normalized) {
               (document.getElementById('select-place-sido') as HTMLSelectElement).value = normalized.sido;
@@ -1320,7 +1321,8 @@ const initialWalks = allWalks.map((w) => ({
                   const normalized = normalizeDistrict(
                     region.region_1depth_name,
                     region.region_2depth_name,
-                    region.region_3depth_name
+                    region.region_3depth_name,
+                    { lat, lng }
                   );
                   if (normalized) {
                     (document.getElementById('select-place-sido') as HTMLSelectElement).value = normalized.sido;
