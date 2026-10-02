@@ -402,14 +402,52 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
         }, 120);
       };
 
+      let selectedBook: HTMLElement | null = null;
+      const isTouch = window.matchMedia('(hover: none)').matches || 'ontouchstart' in window;
+
       books.forEach((book) => {
-        book.addEventListener('mouseenter', () => setHoverContent(book));
+        book.addEventListener('mouseenter', () => {
+          if (!isTouch) setHoverContent(book);
+        });
         book.addEventListener('focus', () => setHoverContent(book));
-        book.addEventListener('mouseleave', resetToDefault);
-        book.addEventListener('blur', resetToDefault);
+        book.addEventListener('mouseleave', () => {
+          if (!isTouch) resetToDefault();
+        });
+        book.addEventListener('blur', () => {
+          if (!isTouch) resetToDefault();
+        });
+
+        // 모바일/터치 기기: 1차 탭 시 책 들림 & 상단 브리핑 표시, 2차 탭 시 이동
+        book.addEventListener('click', (e) => {
+          if (isTouch) {
+            if (selectedBook !== book) {
+              e.preventDefault();
+              if (selectedBook) {
+                selectedBook.classList.remove('-translate-y-5', 'ring-2', 'ring-amber-400');
+              }
+              selectedBook = book;
+              book.classList.add('-translate-y-5', 'ring-2', 'ring-amber-400');
+              setHoverContent(book);
+              return;
+            }
+          }
+        });
       });
 
-      card.addEventListener('mouseleave', resetToDefault);
+      // 터치 환경에서 외부 클릭 시 선택 해제
+      if (isTouch) {
+        document.addEventListener('click', (e) => {
+          if (selectedBook && !selectedBook.contains(e.target as Node)) {
+            selectedBook.classList.remove('-translate-y-5', 'ring-2', 'ring-amber-400');
+            selectedBook = null;
+            resetToDefault();
+          }
+        });
+      }
+
+      card.addEventListener('mouseleave', () => {
+        if (!isTouch) resetToDefault();
+      });
     });
   }
 

@@ -13,7 +13,8 @@
     "check": "astro check",
     "new": "node scripts/new-walk.mjs",
     "import": "node scripts/import-csv.mjs",
-    "sync:photos": "node scripts/sync-photos.mjs"
+    "sync:photos": "node scripts/sync-photos.mjs",
+    "generate:geo": "node scripts/generate-conquest-geojson.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.4",
@@ -25,6 +26,7 @@
     "typescript": "^5.8.2"
   },
   "devDependencies": {
+    "@turf/turf": "^7.4.0",
     "@types/node": "^26.6.3",
     "googleapis": "^182.0.0",
     "heic-decode": "^2.1.0",

@@ -49,6 +49,29 @@
     background-color: #5E3224;
     color: #FCECE6;
   }
+
+  /* 장(Chapter) 직접 링크 시 부드러운 강조 애니메이션 (:target) */
+  .chapter-section:target {
+    animation: chapter-target-glow 2.5s ease-out;
+  }
+
+  @keyframes chapter-target-glow {
+    0% {
+      background-color: rgba(217, 119, 6, 0.16);
+      box-shadow: 0 0 0 10px rgba(217, 119, 6, 0.16);
+      border-radius: 12px;
+    }
+    60% {
+      background-color: rgba(217, 119, 6, 0.08);
+      box-shadow: 0 0 0 6px rgba(217, 119, 6, 0.08);
+      border-radius: 12px;
+    }
+    100% {
+      background-color: transparent;
+      box-shadow: none;
+      border-radius: 0;
+    }
+  }
 }
 
 /* 건축적 라이브러리 배경 씬 (Style B) */

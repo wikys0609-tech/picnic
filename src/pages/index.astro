@@ -12,6 +12,10 @@ import {
   SunMedium,
 } from '@lucide/astro';
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { calculateConquestStats } from '@/lib/geo/conquest-calc';
+
 // 전체 산책 기록 조회 (최신순)
 const allWalks = await getCollection('walks', ({ data }) => {
   return import.meta.env.PROD ? !data.draft : true;
@@ -20,8 +24,10 @@ const allWalks = await getCollection('walks', ({ data }) => {
 allWalks.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 const allPlaces = await getCollection('places');
 
-// 방문한 고유 시군구 추출 (Phase 6에서 GeoJSON 경계 기반 자동 계산으로 전환)
-const visitedSigungu = new Set(allPlaces.map((p) => `${p.data.sido} ${p.data.sigungu}`));
+// 수도권 83개 구역 정복 통계 계산
+const geoJsonPath = path.resolve(process.cwd(), 'public/geo/metropolitan-83.geojson');
+const geoJson = JSON.parse(fs.readFileSync(geoJsonPath, 'utf8'));
+const stats = calculateConquestStats(geoJson, allPlaces, allWalks);
 
 const bgDay = baseUrl('/assets/concepts/style-b-architectural.jpg');
 const bgNight = baseUrl('/assets/concepts/style-b-architectural-night.jpg');
@@ -93,11 +99,11 @@ const bgNight = baseUrl('/assets/concepts/style-b-architectural-night.jpg');
 
               <a
                 href={baseUrl('/conquest')}
-                class="group flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/95 dark:bg-stone-800/95 border border-stone-200/80 dark:border-stone-700 shadow-xs hover:border-terracotta-400 dark:hover:border-terracotta-600 transition-colors w-full sm:w-auto lg:w-full"
+                class="group flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/95 dark:bg-stone-800/95 border border-stone-200/80 dark:border-stone-700 shadow-xs hover:border-[#1E4A2E] dark:hover:border-forest-500 transition-colors w-full sm:w-auto lg:w-full"
               >
                 <Trophy class="w-4 h-4 text-amber-500 shrink-0" />
-                <span class="text-stone-500 dark:text-stone-400 flex-1">정복한 구역</span>
-                <strong class="font-bold text-terracotta-700 dark:text-terracotta-300 text-sm">{visitedSigungu.size} / 83</strong>
+                <span class="text-stone-500 dark:text-stone-400 flex-1">탐방 여권 (정복)</span>
+                <strong class="font-bold text-[#1E4A2E] dark:text-[#84D4A3] text-sm">{stats.conqueredCount} / {stats.totalDistricts} ({stats.conquestRate}%)</strong>
                 <ArrowRight class="w-3.5 h-3.5 text-stone-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
               </a>
             </div>
@@ -113,28 +119,36 @@ const bgNight = baseUrl('/assets/concepts/style-b-architectural-night.jpg');
       <!-- 하단 공간 둘러보기 배너 -->
       <section class="mt-16 p-6 sm:p-8 rounded-2xl bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border border-stone-200/80 dark:border-stone-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
         <div class="space-y-1 text-center sm:text-left">
-          <h3 class="font-serif text-lg font-bold text-stone-900 dark:text-paper-100">
-            도서관의 다른 서고를 둘러보세요
+          <h3 class="font-serif text-lg font-bold text-stone-900 dark:text-paper-100 flex items-center gap-2 justify-center sm:justify-start">
+            <Trophy class="w-4 h-4 text-amber-500" />
+            <span>도서관의 다른 서고를 둘러보세요</span>
           </h3>
           <p class="text-xs sm:text-sm text-stone-600 dark:text-stone-400 font-serif">
-            벽면에 걸린 수도권 대형 장소 지도와 날짜순 전체 산책 일지를 열람할 수 있습니다.
+            수도권 83개 구역 탐방 여권({stats.conqueredCount}곳 정복)과 대형 장소 지도, 날짜순 전체 산책 일지를 열람할 수 있습니다.
           </p>
         </div>
 
-        <div class="flex items-center gap-3 shrink-0">
+        <div class="flex flex-wrap items-center gap-2.5 shrink-0 justify-center sm:justify-end">
+          <a
+            href={baseUrl('/conquest')}
+            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#1E4A2E] hover:bg-[#142E1F] text-xs sm:text-sm font-semibold font-serif text-white transition-colors shadow-xs"
+          >
+            <Trophy class="w-4 h-4 text-amber-400" />
+            정복 지도 펼치기
+          </a>
+          <a
+            href={baseUrl('/map')}
+            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white dark:bg-stone-800 text-xs sm:text-sm font-semibold font-serif text-stone-800 dark:text-paper-100 border border-stone-300 dark:border-stone-700 hover:border-terracotta-400 transition-colors shadow-xs"
+          >
+            <Map class="w-4 h-4" />
+            장소 지도
+          </a>
           <a
             href={baseUrl('/archive')}
             class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white dark:bg-stone-800 text-xs sm:text-sm font-semibold font-serif text-stone-800 dark:text-paper-100 border border-stone-300 dark:border-stone-700 hover:border-terracotta-400 transition-colors shadow-xs"
           >
             <BookOpen class="w-4 h-4 text-stone-600 dark:text-stone-300" />
             열람 기록부
-          </a>
-          <a
-            href={baseUrl('/map')}
-            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-xs sm:text-sm font-semibold font-serif text-white transition-colors shadow-xs"
-          >
-            <Map class="w-4 h-4" />
-            장소 지도
           </a>
         </div>
       </section>

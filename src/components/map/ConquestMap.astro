@@ -1,0 +1,298 @@
+---
+import { baseUrl } from '@/lib/utils/url';
+import type { ConquestStats } from '@/lib/geo/conquest-calc';
+import { CircleAlert, RefreshCw, RotateCcw } from '@lucide/astro';
+
+interface Props {
+  geoJson: any;
+  stats: ConquestStats;
+}
+
+const { geoJson, stats } = Astro.props;
+const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
+
+// 클라이언트에 전달할 정복 구역 맵 (key: sigungu)
+const conqueredLookup: Record<string, any> = {};
+stats.districtsList.forEach((d) => {
+  if (d.isConquered && d.conqueredData) {
+    conqueredLookup[d.sigungu] = d.conqueredData;
+  }
+});
+---
+
+<div class="space-y-4">
+  <!-- 지도 제어 및 필터 바 -->
+  <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white/80 dark:bg-night-900/80 backdrop-blur-md border border-stone-200 dark:border-stone-800 shadow-xs">
+    <!-- 지역 필터 탭 -->
+    <div class="flex flex-wrap items-center gap-1.5" id="conquest-filter-buttons">
+      <button
+        type="button"
+        class="conquest-region-btn active px-3.5 py-1.5 rounded-xl text-xs font-serif font-bold bg-[#1E4A2E] text-white shadow-xs transition-colors"
+        data-region="all"
+      >
+        수도권 전체 ({stats.totalDistricts})
+      </button>
+      <button
+        type="button"
+        class="conquest-region-btn px-3 py-1.5 rounded-xl text-xs font-serif font-medium bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-amber-400 transition-colors"
+        data-region="서울특별시"
+      >
+        서울 ({stats.sidoStats.seoul.conquered}/{stats.sidoStats.seoul.total})
+      </button>
+      <button
+        type="button"
+        class="conquest-region-btn px-3 py-1.5 rounded-xl text-xs font-serif font-medium bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-amber-400 transition-colors"
+        data-region="경기도"
+      >
+        경기 ({stats.sidoStats.gyeonggi.conquered}/{stats.sidoStats.gyeonggi.total})
+      </button>
+      <button
+        type="button"
+        class="conquest-region-btn px-3 py-1.5 rounded-xl text-xs font-serif font-medium bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-amber-400 transition-colors"
+        data-region="인천광역시"
+      >
+        인천 ({stats.sidoStats.incheon.conquered}/{stats.sidoStats.incheon.total})
+      </button>
+    </div>
+
+    <!-- 보기 옵션 (정복 구역만 보기 & 초기화) -->
+    <div class="flex items-center gap-2">
+      <label class="inline-flex items-center gap-1.5 text-xs font-serif font-medium text-stone-700 dark:text-stone-300 cursor-pointer px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 select-none">
+        <input type="checkbox" id="conquest-only-toggle" class="rounded text-[#1E4A2E] focus:ring-amber-400" />
+        <span>정복 구역만 보기</span>
+      </label>
+
+      <button
+        type="button"
+        id="conquest-reset-view-btn"
+        class="p-2 rounded-xl text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 transition-colors"
+        title="수도권 전체 시점으로 리셋"
+        aria-label="지도 시점 초기화"
+      >
+        <RotateCcw class="w-4 h-4" />
+      </button>
+    </div>
+  </div>
+
+  <!-- 지도 캔버스 -->
+  <div class="relative w-full h-[580px] sm:h-[680px] rounded-3xl overflow-hidden border border-stone-300 dark:border-stone-800 shadow-md bg-[#F4EFE6] dark:bg-[#151210]">
+    <div
+      id="kakao-conquest-map"
+      class="w-full h-full"
+      data-geojson={JSON.stringify(geoJson)}
+      data-conquered={JSON.stringify(conqueredLookup)}
+      data-base-url={baseUrlPrefix}
+    ></div>
+
+    <!-- 지도 하단 범례 (Legend) -->
+    <div class="absolute bottom-4 left-4 z-20 hidden sm:flex items-center gap-3 px-3.5 py-2 rounded-xl bg-white/90 dark:bg-stone-900/90 backdrop-blur-md border border-stone-200 dark:border-stone-800 text-[11px] font-serif shadow-sm">
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded-full bg-[#2E5D3E] border border-[#1E4A2E]"></span>
+        <span class="text-stone-700 dark:text-stone-300">정복 완료 (도장 날인)</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded-full bg-amber-500 border border-amber-600"></span>
+        <span class="text-stone-700 dark:text-stone-300">최근 정복 (가름끈 뱃지)</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded-full bg-[#FAF6F0] dark:bg-stone-800 border border-stone-300 dark:border-stone-600"></span>
+        <span class="text-stone-500 dark:text-stone-400">미답사 구역</span>
+      </div>
+    </div>
+
+    <!-- 로딩 스피너 -->
+    <div
+      id="conquest-map-loading"
+      class="absolute inset-0 bg-stone-50/80 dark:bg-stone-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3 z-30 transition-opacity"
+    >
+      <div class="w-8 h-8 rounded-full border-2 border-[#1E4A2E] border-t-transparent animate-spin"></div>
+      <p class="text-xs font-serif font-medium text-stone-700 dark:text-stone-300">83개 구역 정복 지도를 펼치는 중입니다...</p>
+    </div>
+
+    <!-- 에러 표시 -->
+    <div
+      id="conquest-map-error"
+      class="hidden absolute inset-0 bg-[#FAF8F5] dark:bg-stone-950 p-6 flex-col items-center justify-center text-center gap-3 z-30"
+    >
+      <div class="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center">
+        <CircleAlert class="w-6 h-6" />
+      </div>
+      <h4 class="font-serif text-base font-bold text-stone-900 dark:text-paper-100">
+        정복 지도를 불러올 수 없습니다
+      </h4>
+      <p id="conquest-map-error-msg" class="text-xs text-stone-500 dark:text-stone-400 max-w-md leading-relaxed"></p>
+      <button
+        type="button"
+        id="conquest-map-retry-btn"
+        class="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1E4A2E] text-white text-xs font-serif font-semibold hover:bg-[#142E1F] transition-colors"
+      >
+        <RefreshCw class="w-3.5 h-3.5" />
+        다시 시도
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { KakaoMapAdapter } from '@/lib/map/kakao-adapter';
+
+  let adapter: KakaoMapAdapter | null = null;
+  let allFeatures: any[] = [];
+  let conqueredMap = new Map<string, any>();
+  let baseUrlPrefix = '';
+  let selectedRegion = 'all';
+  let onlyConquered = false;
+
+  async function initConquestMap() {
+    const container = document.getElementById('kakao-conquest-map') as HTMLElement | null;
+    const loadingEl = document.getElementById('conquest-map-loading');
+    const errorEl = document.getElementById('conquest-map-error');
+    const errorMsgEl = document.getElementById('conquest-map-error-msg');
+    const retryBtn = document.getElementById('conquest-map-retry-btn');
+
+    if (!container) return;
+
+    try {
+      loadingEl?.classList.remove('hidden');
+      errorEl?.classList.add('hidden');
+
+      const rawGeo = container.dataset.geojson;
+      const rawConquered = container.dataset.conquered;
+      baseUrlPrefix = container.dataset.baseUrl || '';
+
+      const geoData = rawGeo ? JSON.parse(rawGeo) : { features: [] };
+      allFeatures = geoData.features || [];
+
+      const conqueredObj = rawConquered ? JSON.parse(rawConquered) : {};
+      conqueredMap = new Map(Object.entries(conqueredObj));
+
+      if (adapter) {
+        adapter.destroy();
+      }
+      adapter = new KakaoMapAdapter();
+
+      // 수도권 중심 좌표 (서울-경기 중간 지점)
+      await adapter.init(container, {
+        center: { lat: 37.525, lng: 126.98 },
+        level: 10,
+        scrollwheel: true,
+      });
+
+      renderCurrentPolygons();
+
+      loadingEl?.classList.add('hidden');
+    } catch (err) {
+      console.error('정복 지도 초기화 실패:', err);
+      loadingEl?.classList.add('hidden');
+      if (errorEl && errorMsgEl) {
+        errorEl.classList.remove('hidden');
+        errorEl.classList.add('flex');
+        errorMsgEl.textContent = err instanceof Error ? err.message : '카카오맵 로딩 중 오류가 발생했습니다.';
+      }
+    }
+
+    if (retryBtn) {
+      retryBtn.onclick = () => initConquestMap();
+    }
+
+    setupControlListeners();
+  }
+
+  function renderCurrentPolygons() {
+    if (!adapter) return;
+
+    // 필터링 적용
+    const filteredFeatures = allFeatures.filter((f) => {
+      const sido = f.properties.sido;
+      const sigungu = f.properties.sigungu;
+      const isConquered = conqueredMap.has(sigungu);
+
+      const matchesRegion = selectedRegion === 'all' || sido === selectedRegion;
+      const matchesConquered = !onlyConquered || isConquered;
+
+      return matchesRegion && matchesConquered;
+    });
+
+    adapter.clearMapElements();
+    const center = getRegionCenter(selectedRegion);
+    const zoom = getRegionZoom(selectedRegion);
+    adapter.setCenter(center.lat, center.lng, zoom);
+    adapter.addConquestPolygons(filteredFeatures, conqueredMap, baseUrlPrefix);
+  }
+
+  function getRegionCenter(region: string): { lat: number; lng: number } {
+    switch (region) {
+      case '서울특별시':
+        return { lat: 37.5665, lng: 126.9780 };
+      case '인천광역시':
+        return { lat: 37.48, lng: 126.65 };
+      case '경기도':
+        return { lat: 37.45, lng: 127.15 };
+      default:
+        return { lat: 37.525, lng: 126.98 };
+    }
+  }
+
+  function getRegionZoom(region: string): number {
+    switch (region) {
+      case '서울특별시':
+        return 8;
+      case '인천광역시':
+        return 9;
+      case '경기도':
+        return 10;
+      default:
+        return 10;
+    }
+  }
+
+  function setupControlListeners() {
+    const regionButtons = document.querySelectorAll<HTMLButtonElement>('.conquest-region-btn');
+    const conqueredToggle = document.getElementById('conquest-only-toggle') as HTMLInputElement | null;
+    const resetBtn = document.getElementById('conquest-reset-view-btn');
+
+    regionButtons.forEach((btn) => {
+      btn.onclick = () => {
+        regionButtons.forEach((b) => {
+          b.classList.remove('active', 'bg-[#1E4A2E]', 'text-white');
+          b.classList.add('bg-white', 'dark:bg-stone-800', 'text-stone-700', 'dark:text-stone-300');
+        });
+        btn.classList.add('active', 'bg-[#1E4A2E]', 'text-white');
+        btn.classList.remove('bg-white', 'dark:bg-stone-800', 'text-stone-700', 'dark:text-stone-300');
+
+        selectedRegion = btn.dataset.region || 'all';
+        renderCurrentPolygons();
+      };
+    });
+
+    if (conqueredToggle) {
+      conqueredToggle.onchange = () => {
+        onlyConquered = conqueredToggle.checked;
+        renderCurrentPolygons();
+      };
+    }
+
+    if (resetBtn) {
+      resetBtn.onclick = () => {
+        selectedRegion = 'all';
+        onlyConquered = false;
+        if (conqueredToggle) conqueredToggle.checked = false;
+
+        regionButtons.forEach((b) => {
+          if (b.dataset.region === 'all') {
+            b.classList.add('active', 'bg-[#1E4A2E]', 'text-white');
+            b.classList.remove('bg-white', 'dark:bg-stone-800');
+          } else {
+            b.classList.remove('active', 'bg-[#1E4A2E]', 'text-white');
+            b.classList.add('bg-white', 'dark:bg-stone-800');
+          }
+        });
+
+        renderCurrentPolygons();
+      };
+    }
+  }
+
+  initConquestMap();
+  document.addEventListener('astro:after-swap', initConquestMap);
+</script>

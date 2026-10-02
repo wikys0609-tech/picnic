@@ -107,19 +107,21 @@ export function normalizeDistrict(
 
   // 3. 인천광역시 (2026 개편 11개 구·군)
   if (sido === '인천광역시') {
-    // 중구 또는 동구인 경우 -> 영종구 or 제물포구 판별
-    if (r2.includes('중구') || r2.includes('동구')) {
+    // 중구 또는 동구인 경우 -> 영종구 or 제물포구 판별 (남동구 제외)
+    const isJungOrDong = (r2 === '중구' || r2 === '동구' || /^([^\w\s]+\s+)?(중구|동구)$/.test(r2)) && !r2.includes('남동구');
+    if (isJungOrDong) {
       const isYeongjong = INCHEON_YEONGJONG_KEYWORDS.some(k => fullAddress.includes(k));
       return { sido, sigungu: isYeongjong ? '영종구' : '제물포구' };
     }
 
-    // 서구인 경우 -> 검단구 or 서구 판별
-    if (r2.includes('서구')) {
+    // 서구인 경우 -> 검단구 or 서구 판별 (강서구 등 타 지역 방어)
+    const isSeoGu = r2 === '서구' || /^([^\w\s]+\s+)?서구$/.test(r2);
+    if (isSeoGu) {
       const isGeomdan = INCHEON_GEOMDAN_KEYWORDS.some(k => fullAddress.includes(k));
       return { sido, sigungu: isGeomdan ? '검단구' : '서구' };
     }
 
-    // 기존 구/군 매칭 (미추홀, 연수, 남동, 부평, 계양, 강화, 옹진)
+    // 기존 구/군 매칭 (남동구, 미추홀구, 연수구, 부평구, 계양구, 강화군, 옹진군)
     const matched = INCHEON_DISTRICTS_2026.find(d => r2.includes(d));
     if (matched) return { sido, sigungu: matched };
 

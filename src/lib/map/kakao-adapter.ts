@@ -12,6 +12,7 @@ export class KakaoMapAdapter {
   private markers: any[] = [];
   private overlays: any[] = [];
   private polylines: any[] = [];
+  private polygons: any[] = [];
   private activeOverlay: any = null;
 
   async init(container: HTMLElement, options: MapAdapterOptions = {}): Promise<void> {
@@ -283,6 +284,239 @@ export class KakaoMapAdapter {
     this.activeOverlay = overlay;
   }
 
+  /**
+   * 83개 구역 정복 지도 폴리곤 및 탐방 스탬프 렌더링
+   */
+  addConquestPolygons(
+    features: any[],
+    conqueredMap: Map<string, any>,
+    baseUrlPrefix: string = '',
+    onDistrictClick?: (district: any) => void
+  ): void {
+    if (!this.map || typeof window === 'undefined' || !window.kakao) return;
+    const kakao = window.kakao;
+
+    features.forEach((feature) => {
+      const props = feature.properties;
+      const sigungu = props.sigungu;
+      const conqueredData = conqueredMap.get(sigungu);
+      const isConquered = !!conqueredData;
+      const isRecentlyConquered = conqueredData?.isRecentlyConquered || false;
+
+      // 폴리곤 좌표 배열 파싱 (Polygon 또는 MultiPolygon)
+      const geomType = feature.geometry.type;
+      const geomCoords = feature.geometry.coordinates;
+      const polygonPaths: any[] = [];
+
+      if (geomType === 'Polygon') {
+        const rings = geomCoords.map((ring: [number, number][]) =>
+          ring.map(([lng, lat]) => new kakao.maps.LatLng(lat, lng))
+        );
+        polygonPaths.push(rings);
+      } else if (geomType === 'MultiPolygon') {
+        geomCoords.forEach((poly: [number, number][][]) => {
+          const rings = poly.map((ring: [number, number][]) =>
+            ring.map(([lng, lat]) => new kakao.maps.LatLng(lat, lng))
+          );
+          polygonPaths.push(rings);
+        });
+      }
+
+      // 색상 스타일링 ("숲속 도서관" 팔레트)
+      const baseFillColor = isConquered ? '#2E5D3E' : '#FAF6F0';
+      const hoverFillColor = isConquered ? '#1E4A2E' : '#E8DCC9';
+      const baseStrokeColor = isConquered ? '#1A3B25' : '#D1C7B7';
+      const hoverStrokeColor = isConquered ? '#0F2617' : '#9E8E7A';
+
+      polygonPaths.forEach((path) => {
+        const polygon = new kakao.maps.Polygon({
+          path: path,
+          strokeWeight: isConquered ? 2 : 1.2,
+          strokeColor: baseStrokeColor,
+          strokeOpacity: isConquered ? 0.95 : 0.75,
+          fillColor: baseFillColor,
+          fillOpacity: isConquered ? 0.45 : 0.28,
+        });
+
+        polygon.setMap(this.map);
+        this.polygons.push(polygon);
+
+        // 마우스 호버 효과
+        kakao.maps.event.addListener(polygon, 'mouseover', () => {
+          polygon.setOptions({
+            fillColor: hoverFillColor,
+            fillOpacity: isConquered ? 0.65 : 0.55,
+            strokeColor: hoverStrokeColor,
+            strokeWeight: isConquered ? 2.5 : 2,
+          });
+        });
+
+        kakao.maps.event.addListener(polygon, 'mouseout', () => {
+          polygon.setOptions({
+            fillColor: baseFillColor,
+            fillOpacity: isConquered ? 0.45 : 0.28,
+            strokeColor: baseStrokeColor,
+            strokeWeight: isConquered ? 2 : 1.2,
+          });
+        });
+
+        // 클릭 이벤트
+        kakao.maps.event.addListener(polygon, 'click', (mouseEvent: any) => {
+          const clickPos = mouseEvent?.latLng || (props.center ? new kakao.maps.LatLng(props.center[0], props.center[1]) : this.map.getCenter());
+          this.openConquestDistrictOverlay(props, conqueredData, clickPos, baseUrlPrefix);
+          if (onDistrictClick) onDistrictClick(props);
+        });
+      });
+
+      // 정복된 구역: 중심 좌표에 탐방 인장(Passport Stamp) 오버레이 배치
+      if (isConquered && props.center) {
+        const centerPos = new kakao.maps.LatLng(props.center[0], props.center[1]);
+        const shortName = props.sigungu.split(' ').pop() || props.name;
+
+        const stampEl = document.createElement('div');
+        stampEl.className = 'conquest-stamp-wrapper relative cursor-pointer group flex flex-col items-center select-none z-20 hover:z-40';
+        stampEl.innerHTML = `
+          ${isRecentlyConquered ? `
+            <div class="absolute -top-3 z-30 pointer-events-none" title="최근 정복한 구역">
+              <div class="silk-ribbon w-3 h-5 shadow-xs" style="background: linear-gradient(180deg, #F59E0B 0%, #D97706 60%, #B45309 100%);"></div>
+            </div>
+          ` : ''}
+          <div class="relative w-10 h-10 rounded-full border-2 border-[#1E4A2E] dark:border-[#3D6B4F] bg-[#FAF8F5]/95 dark:bg-[#1C1815]/95 shadow-md flex items-center justify-center p-0.5 transition-all duration-300 group-hover:scale-115 ${isRecentlyConquered ? 'ring-2 ring-amber-400 ring-offset-1' : ''}">
+            <div class="w-full h-full rounded-full border border-dashed border-[#2E5D3E]/70 dark:border-[#4E8062]/70 flex flex-col items-center justify-center text-center">
+              <span class="text-[8.5px] font-serif font-bold text-[#1E4A2E] dark:text-[#E2EBE5] tracking-tighter truncate max-w-[32px] leading-none">
+                ${shortName}
+              </span>
+              <span class="text-[7px] font-serif font-bold text-amber-700 dark:text-amber-400 leading-none mt-0.5">
+                탐방
+              </span>
+            </div>
+          </div>
+        `;
+
+        stampEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openConquestDistrictOverlay(props, conqueredData, centerPos, baseUrlPrefix);
+          if (onDistrictClick) onDistrictClick(props);
+        });
+
+        const stampOverlay = new kakao.maps.CustomOverlay({
+          position: centerPos,
+          content: stampEl,
+          yAnchor: 0.5,
+          xAnchor: 0.5,
+          zIndex: 25,
+        });
+
+        stampOverlay.setMap(this.map);
+        this.overlays.push(stampOverlay);
+      }
+    });
+  }
+
+  /**
+   * 구역 상세 안내 팝업 (정복/미정복)
+   */
+  openConquestDistrictOverlay(
+    props: any,
+    conqueredData: any,
+    position: any,
+    baseUrlPrefix: string = ''
+  ): void {
+    if (!this.map || typeof window === 'undefined' || !window.kakao) return;
+    const kakao = window.kakao;
+
+    this.closeActiveOverlay();
+
+    const isConquered = !!conqueredData;
+    const overlayEl = document.createElement('div');
+    overlayEl.className = 'w-72 sm:w-80 rounded-2xl bg-white dark:bg-[#1A1816] text-stone-900 dark:text-stone-100 shadow-xl border border-stone-200 dark:border-stone-800 p-4 font-sans text-left z-50';
+
+    if (isConquered && conqueredData) {
+      const placesList = (conqueredData.places || []).map((p: any) => `
+        <li class="flex items-center justify-between py-1.5 border-b border-stone-100 dark:border-stone-800/80 last:border-none text-xs">
+          <span class="font-serif font-semibold text-stone-800 dark:text-stone-200 truncate max-w-[170px]">
+            ${p.data?.name || p.name}
+          </span>
+          <a
+            href="${baseUrlPrefix}/places/${p.id}"
+            class="text-[11px] font-serif text-terracotta-600 dark:text-terracotta-300 hover:underline flex items-center gap-0.5 shrink-0"
+          >
+            앨범 펼쳐보기 &rarr;
+          </a>
+        </li>
+      `).join('');
+
+      overlayEl.innerHTML = `
+        <div class="flex items-start justify-between gap-2 mb-3">
+          <div>
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#1E4A2E] text-white tracking-wide">
+                탐방 완료
+              </span>
+              ${conqueredData.isRecentlyConquered ? `
+                <span class="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-amber-500 text-white">
+                  최근 정복
+                </span>
+              ` : ''}
+            </div>
+            <h4 class="font-serif text-base font-bold text-stone-900 dark:text-paper-100">
+              ${props.sido} ${props.name}
+            </h4>
+          </div>
+          <button type="button" class="overlay-close-btn p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
+            &times;
+          </button>
+        </div>
+
+        <div class="mb-3 text-[11px] text-stone-500 dark:text-stone-400 font-serif flex items-center justify-between">
+          <span>수록 산책: <strong>${conqueredData.walkCount || 0}편</strong></span>
+          ${conqueredData.latestVisitDate ? `<span>최근: ${conqueredData.latestVisitDate}</span>` : ''}
+        </div>
+
+        <div class="pt-2 border-t border-stone-200 dark:border-stone-800">
+          <span class="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">탐방한 장소</span>
+          <ul class="space-y-0.5">
+            ${placesList}
+          </ul>
+        </div>
+      `;
+    } else {
+      overlayEl.innerHTML = `
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
+              미답사 구역
+            </span>
+            <h4 class="font-serif text-base font-bold text-stone-900 dark:text-paper-100 mt-1">
+              ${props.sido} ${props.name}
+            </h4>
+          </div>
+          <button type="button" class="overlay-close-btn p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
+            &times;
+          </button>
+        </div>
+        <p class="text-xs text-stone-500 dark:text-stone-400 font-serif leading-relaxed mt-2">
+          아직 발걸음이 닿지 않은 고요한 숲길입니다. 이곳을 걷고 산책 기록을 작성하면 서가에 새 책이 꽂히고 탐방 도장이 찍힙니다.
+        </p>
+      `;
+    }
+
+    overlayEl.querySelector('.overlay-close-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.closeActiveOverlay();
+    });
+
+    const overlay = new kakao.maps.CustomOverlay({
+      position: position,
+      content: overlayEl,
+      yAnchor: 1.25,
+      zIndex: 100,
+    });
+
+    overlay.setMap(this.map);
+    this.activeOverlay = overlay;
+  }
+
   closeActiveOverlay(): void {
     if (this.activeOverlay) {
       this.activeOverlay.setMap(null);
@@ -290,7 +524,10 @@ export class KakaoMapAdapter {
     }
   }
 
-  destroy(): void {
+  /**
+   * 지도에 등록된 모든 마커, 오버레이, 폴리곤, 폴리라인 초기화
+   */
+  clearMapElements(): void {
     this.closeActiveOverlay();
     this.markers.forEach((m) => m.setMap(null));
     this.markers = [];
@@ -298,6 +535,25 @@ export class KakaoMapAdapter {
     this.overlays = [];
     this.polylines.forEach((p) => p.setMap(null));
     this.polylines = [];
+    this.polygons.forEach((p) => p.setMap(null));
+    this.polygons = [];
+  }
+
+  /**
+   * 지도 중심 좌표 및 줌 레벨 부드러운 이동
+   */
+  setCenter(lat: number, lng: number, level?: number): void {
+    if (!this.map || typeof window === 'undefined' || !window.kakao) return;
+    const kakao = window.kakao;
+    const centerLatLng = new kakao.maps.LatLng(lat, lng);
+    this.map.panTo(centerLatLng);
+    if (level !== undefined) {
+      this.map.setLevel(level);
+    }
+  }
+
+  destroy(): void {
+    this.clearMapElements();
     this.map = null;
   }
 }
