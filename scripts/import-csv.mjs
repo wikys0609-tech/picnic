@@ -7,9 +7,20 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { findDistrictByCoords } from '../src/lib/geo/pip-core.mjs';
 
 const PLACES_DIR = path.resolve(process.cwd(), 'src/content/places');
 const WALKS_DIR = path.resolve(process.cwd(), 'src/content/walks');
+const GEOJSON_PATH = path.resolve(process.cwd(), 'public/geo/metropolitan-83.geojson');
+
+let conquestGeoJson = null;
+if (fs.existsSync(GEOJSON_PATH)) {
+  try {
+    conquestGeoJson = JSON.parse(fs.readFileSync(GEOJSON_PATH, 'utf8'));
+  } catch (err) {
+    console.warn('⚠️ GeoJSON 파싱 실패:', err.message);
+  }
+}
 
 // 간단한 CSV 행 파서 (따옴표 및 쉼표 처리)
 function parseCSV(text) {
@@ -142,14 +153,28 @@ function main() {
       console.log(`  ✓ 산책 생성: ${slug}.md`);
       count++;
     } else if (row.id && row.name && row.lat && row.lng) {
-      // 2. 장소 데이터 가져오기
+      // 2. 장소 데이터 가져오기 (Point-in-Polygon 기반 행정구역 자동 판정)
+      const lat = parseFloat(row.lat);
+      const lng = parseFloat(row.lng);
+      let sido = row.sido || '서울특별시';
+      let sigungu = row.sigungu || '종로구';
+
+      const match = conquestGeoJson ? findDistrictByCoords({ lat, lng }, conquestGeoJson) : null;
+      if (match) {
+        sido = match.sido;
+        sigungu = match.sigungu;
+        console.log(`  🎯 [${row.name}] 정복 지도 구역 자동 판정: ${sido} ${sigungu}`);
+      } else {
+        console.log(`  ℹ️ [${row.name}] 정복 지도 대상 지역 외 장소 (${sido} ${sigungu})`);
+      }
+
       const placeLines = [
         '---',
         `name: ${row.name}`,
-        `lat: ${parseFloat(row.lat)}`,
-        `lng: ${parseFloat(row.lng)}`,
-        `sido: ${row.sido || '서울특별시'}`,
-        `sigungu: ${row.sigungu || '종로구'}`,
+        `lat: ${lat}`,
+        `lng: ${lng}`,
+        `sido: ${sido}`,
+        `sigungu: ${sigungu}`,
         `type: ${row.type || '공원'}`,
         'facilities: []',
         `hidden: false`,

@@ -237,7 +237,7 @@ async function main() {
     // 경계 단순화 (0.001도 ≈ 100m 정밀도, 웹 렌더링 초고속 최적화)
     let simplified = unified;
     try {
-      simplified = turf.simplify(unified, { tolerance: 0.0008, highQuality: true });
+      simplified = turf.simplify(unified, { tolerance: 0.00035, highQuality: true });
     } catch {}
 
     // 중심 좌표 계산

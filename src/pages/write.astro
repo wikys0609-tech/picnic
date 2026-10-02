@@ -609,6 +609,7 @@ const initialWalks = allWalks.map((w) => ({
               <option value="서울특별시">서울특별시</option>
               <option value="경기도">경기도</option>
               <option value="인천광역시">인천광역시</option>
+              <option value="기타">기타 (수도권 외 지역)</option>
             </select>
           </div>
 
@@ -624,6 +625,11 @@ const initialWalks = allWalks.map((w) => ({
               class="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500 outline-none"
             />
           </div>
+        </div>
+
+        <!-- 정복 구역 판정 상태 안내 배너 (PIP 결과) -->
+        <div id="place-conquest-badge" class="hidden">
+          <span id="place-conquest-status-text"></span>
         </div>
 
         <!-- 장소 유형 -->
@@ -810,7 +816,9 @@ const initialWalks = allWalks.map((w) => ({
 
 <script>
   import { verifyGithubToken, atomicCommitFiles } from '@/lib/github/github-api';
-  import { normalizeDistrict, findNearbyPlaces } from '@/lib/geo/districts';
+  import { findNearbyPlaces } from '@/lib/geo/districts';
+  import { findDistrictByCoords } from '@/lib/geo/point-in-polygon';
+  import { baseUrl } from '@/lib/utils/url';
   import { generatePlaceMarkdown, generateWalkMarkdown, type PlaceInput, type WalkInput } from '@/lib/content/markdown-generator';
   import { loadKakaoSDK } from '@/lib/map/kakao-loader';
 
@@ -1245,29 +1253,84 @@ const initialWalks = allWalks.map((w) => ({
 
     kakaoSearchResults?.classList.add('hidden');
 
-    // 1. 역지오코딩을 통한 83개 정규화
+    // 1. 역지오코딩 & Point-in-Polygon을 통한 83개 정규화
     if (kakaoGeocoderService) {
       kakaoGeocoderService.coord2RegionCode(lng, lat, (result: any[], status: any) => {
-        if (status === window.kakao.maps.services.Status.OK) {
-          const region = result.find((r) => r.region_type === 'H') || result[0];
-          if (region) {
-            const normalized = normalizeDistrict(
-              region.region_1depth_name,
-              region.region_2depth_name,
-              region.region_3depth_name,
-              { lat, lng }
-            );
-            if (normalized) {
-              (document.getElementById('select-place-sido') as HTMLSelectElement).value = normalized.sido;
-              (document.getElementById('input-place-sigungu') as HTMLInputElement).value = normalized.sigungu;
-            }
-          }
-        }
+        const region =
+          status === window.kakao.maps.services.Status.OK
+            ? result.find((r) => r.region_type === 'H') || result[0]
+            : null;
+        applyPointInPolygonRegion(lat, lng, region);
       });
+    } else {
+      applyPointInPolygonRegion(lat, lng);
     }
 
     // 2. 반경 200m 중복 장소 감지
     checkNearbyExistingPlaces(lat, lng);
+  }
+
+  let cachedGeoJson: any = null;
+  async function getConquestGeoJson() {
+    if (cachedGeoJson) return cachedGeoJson;
+    try {
+      const res = await fetch(baseUrl('/geo/metropolitan-83.geojson'));
+      if (res.ok) {
+        cachedGeoJson = await res.json();
+        return cachedGeoJson;
+      }
+    } catch (err) {
+      console.warn('GeoJSON 로드 실패:', err);
+    }
+    return null;
+  }
+  // 백그라운드 프리로드
+  getConquestGeoJson();
+
+  async function applyPointInPolygonRegion(lat: number, lng: number, kakaoRegion?: any) {
+    const geo = await getConquestGeoJson();
+    const matched = geo ? findDistrictByCoords({ lat, lng }, geo) : null;
+
+    const sidoSelect = document.getElementById('select-place-sido') as HTMLSelectElement;
+    const sigunguInput = document.getElementById('input-place-sigungu') as HTMLInputElement;
+    const conquestBadge = document.getElementById('place-conquest-badge');
+    const conquestText = document.getElementById('place-conquest-status-text');
+
+    if (matched) {
+      // 1. 수도권 83개 정복 지도 폴리곤 내부에 속한 경우
+      sidoSelect.value = matched.sido;
+      sigunguInput.value = matched.sigungu;
+
+      if (conquestBadge && conquestText) {
+        conquestBadge.className = 'flex items-center gap-1.5 p-2.5 rounded-xl text-xs font-serif bg-forest-50 dark:bg-forest-950/80 text-forest-800 dark:text-forest-200 border border-forest-200 dark:border-forest-800 mt-2';
+        conquestText.innerHTML = `🎯 <strong>수도권 83개 정복 구역 (${matched.sigungu})</strong> 자동 판정 완료`;
+        conquestBadge.classList.remove('hidden');
+      }
+    } else {
+      // 2. 어느 폴리곤에도 속하지 않는 경우 (수도권 밖, 해상 등)
+      if (kakaoRegion) {
+        const r1 = kakaoRegion.region_1depth_name || '';
+        const r2 = kakaoRegion.region_2depth_name || '';
+        if (r1.includes('서울')) sidoSelect.value = '서울특별시';
+        else if (r1.includes('경기')) sidoSelect.value = '경기도';
+        else if (r1.includes('인천')) sidoSelect.value = '인천광역시';
+        else {
+          let opt = Array.from(sidoSelect.options).find((o) => o.value === r1);
+          if (!opt && r1) {
+            opt = new Option(r1, r1);
+            sidoSelect.add(opt);
+          }
+          if (r1) sidoSelect.value = r1;
+        }
+        sigunguInput.value = r2;
+      }
+
+      if (conquestBadge && conquestText) {
+        conquestBadge.className = 'flex items-center gap-1.5 p-2.5 rounded-xl text-xs font-serif bg-amber-50 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 mt-2';
+        conquestText.innerHTML = `⚠️ <strong>정복 지도 대상 지역이 아닙니다</strong> (수도권 83개 구역 밖이거나 해상. 기록은 서가에 정상 등록됩니다)`;
+        conquestBadge.classList.remove('hidden');
+      }
+    }
   }
 
   function checkNearbyExistingPlaces(lat: number, lng: number) {
@@ -1309,29 +1372,24 @@ const initialWalks = allWalks.map((w) => ({
         (document.getElementById('input-place-lat') as HTMLInputElement).value = String(lat);
         (document.getElementById('input-place-lng') as HTMLInputElement).value = String(lng);
 
-        // 좌표를 바탕으로 주소 변환
+        // 좌표를 바탕으로 주소 변환 및 PIP 구역 판정
         initKakaoServices().then(() => {
           if (kakaoGeocoderService) {
             kakaoGeocoderService.coord2RegionCode(lng, lat, (result: any[], status: any) => {
-              if (status === window.kakao.maps.services.Status.OK) {
-                const region = result.find((r) => r.region_type === 'H') || result[0];
-                if (region) {
-                  const placeName = `${region.region_3depth_name} 산책길`;
-                  (document.getElementById('input-place-name') as HTMLInputElement).value = placeName;
-                  const normalized = normalizeDistrict(
-                    region.region_1depth_name,
-                    region.region_2depth_name,
-                    region.region_3depth_name,
-                    { lat, lng }
-                  );
-                  if (normalized) {
-                    (document.getElementById('select-place-sido') as HTMLSelectElement).value = normalized.sido;
-                    (document.getElementById('input-place-sigungu') as HTMLInputElement).value = normalized.sigungu;
-                  }
-                  checkNearbyExistingPlaces(lat, lng);
-                }
+              const region =
+                status === window.kakao.maps.services.Status.OK
+                  ? result.find((r) => r.region_type === 'H') || result[0]
+                  : null;
+              if (region) {
+                const placeName = `${region.region_3depth_name} 산책길`;
+                (document.getElementById('input-place-name') as HTMLInputElement).value = placeName;
               }
+              applyPointInPolygonRegion(lat, lng, region);
+              checkNearbyExistingPlaces(lat, lng);
             });
+          } else {
+            applyPointInPolygonRegion(lat, lng);
+            checkNearbyExistingPlaces(lat, lng);
           }
         });
       },
@@ -1341,6 +1399,27 @@ const initialWalks = allWalks.map((w) => ({
       { enableHighAccuracy: true, timeout: 10000 }
     );
   });
+
+  // 위도/경도 직접 수정 시 PIP 구역 자동 재판정
+  const inputPlaceLat = document.getElementById('input-place-lat') as HTMLInputElement | null;
+  const inputPlaceLng = document.getElementById('input-place-lng') as HTMLInputElement | null;
+  function onCoordsInputChanged() {
+    const lat = parseFloat(inputPlaceLat?.value || '');
+    const lng = parseFloat(inputPlaceLng?.value || '');
+    if (!isNaN(lat) && !isNaN(lng)) {
+      if (kakaoGeocoderService) {
+        kakaoGeocoderService.coord2RegionCode(lng, lat, (result: any[], status: any) => {
+          const region = status === window.kakao.maps.services.Status.OK ? (result.find((r) => r.region_type === 'H') || result[0]) : null;
+          applyPointInPolygonRegion(lat, lng, region);
+        });
+      } else {
+        applyPointInPolygonRegion(lat, lng);
+      }
+      checkNearbyExistingPlaces(lat, lng);
+    }
+  }
+  inputPlaceLat?.addEventListener('change', onCoordsInputChanged);
+  inputPlaceLng?.addEventListener('change', onCoordsInputChanged);
 
   function generatePlaceSlug(name: string) {
     return name

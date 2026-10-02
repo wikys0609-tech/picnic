@@ -14,7 +14,9 @@
     "new": "node scripts/new-walk.mjs",
     "import": "node scripts/import-csv.mjs",
     "sync:photos": "node scripts/sync-photos.mjs",
-    "generate:geo": "node scripts/generate-conquest-geojson.mjs"
+    "generate:geo": "node scripts/generate-conquest-geojson.mjs",
+    "test:geo": "node scripts/test-boundary.mjs",
+    "test": "node scripts/test-boundary.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.4",

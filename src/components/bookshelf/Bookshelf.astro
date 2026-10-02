@@ -44,20 +44,20 @@ const recentSortedPlaces = [...placesWithWalks].sort(
 // 정렬 목록: 방문 많은 순 (두꺼운 책)
 const countSortedPlaces = [...placesWithWalks].sort((a, b) => b.walkCount - a.walkCount);
 
-// 한 선반당 수용 권수 (데스크톱 기준 12권 초기 SSR 렌더링, 클라이언트에서 화면 폭에 맞춰 자동 다단 동적 계산)
-function chunkShelfTiers(items: PlaceWithWalks[], maxPerTier: number = 12): PlaceWithWalks[][] {
-  const tiers: PlaceWithWalks[][] = [];
-  for (let i = 0; i < items.length; i += maxPerTier) {
-    tiers.push(items.slice(i, i + maxPerTier));
-  }
-  return tiers.length > 0 ? tiers : [[]];
+// 한 선반당 수용 권수:
+// 모바일(폭 <= 600px)에서는 1~2단 가로 스크롤 방식 (6권 이하 1단, 초과 시 2단 분할)
+// 초기 SSR 시 모바일과 데스크톱 양쪽에서 레이아웃 이동(출렁임, CLS)을 완전히 방지
+function chunkShelfTiers(items: PlaceWithWalks[]): PlaceWithWalks[][] {
+  if (items.length <= 6) return [items];
+  const mid = Math.ceil(items.length / 2);
+  return [items.slice(0, mid), items.slice(mid)];
 }
 
-const seoulTiers = chunkShelfTiers(seoulPlaces, 12);
-const gyeonggiTiers = chunkShelfTiers(gyeonggiPlaces, 12);
-const incheonTiers = chunkShelfTiers(incheonPlaces, 12);
-const recentTiers = chunkShelfTiers(recentSortedPlaces, 12);
-const countTiers = chunkShelfTiers(countSortedPlaces, 12);
+const seoulTiers = chunkShelfTiers(seoulPlaces);
+const gyeonggiTiers = chunkShelfTiers(gyeonggiPlaces);
+const incheonTiers = chunkShelfTiers(incheonPlaces);
+const recentTiers = chunkShelfTiers(recentSortedPlaces);
+const countTiers = chunkShelfTiers(countSortedPlaces);
 
 const woodShelfDay = baseUrl('/assets/textures/oak-shelf-day.jpg');
 const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
@@ -138,15 +138,23 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
         {seoulTiers.map((tier, tierIndex) => (
           <div class="shelf-tier relative pt-5 pb-0">
             {seoulTiers.length > 1 && (
-              <span class="shelf-tier-badge absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 tracking-wider">
+              <span class="shelf-tier-badge absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 dark:text-stone-500 tracking-wider">
                 제 {tierIndex + 1} 단
               </span>
             )}
-            <div class="shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-6 flex-wrap sm:flex-nowrap">
-              {tier.map(({ place, walks }) => (
-                <BookSpine place={place} walks={walks} />
-              ))}
-              <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
+            <div class="shelf-tier-scroll-wrapper relative">
+              <div class="shelf-scroll-hint-left pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-[#F6F1EA] dark:from-[#15110E] to-transparent sm:hidden opacity-0 transition-opacity duration-200"></div>
+
+              <div class="shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-10 sm:pr-6 overflow-x-auto sm:overflow-visible hide-scrollbar scroll-smooth">
+                {tier.map(({ place, walks }) => (
+                  <BookSpine place={place} walks={walks} />
+                ))}
+                <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
+              </div>
+
+              <div class="shelf-scroll-hint-right pointer-events-none absolute right-0 top-0 bottom-0 w-12 z-10 bg-gradient-to-l from-[#F6F1EA] dark:from-[#15110E] via-[#F6F1EA]/70 dark:via-[#15110E]/70 to-transparent sm:hidden transition-opacity duration-200 flex items-center justify-end pr-1">
+                <span class="text-stone-400 dark:text-stone-500 text-xs font-serif font-bold">›</span>
+              </div>
             </div>
             <!-- 묵직한 30px 원목 선반 상판 -->
             <div class="wood-shelf-plank"></div>
@@ -177,15 +185,23 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
         {gyeonggiTiers.map((tier, tierIndex) => (
           <div class="shelf-tier relative pt-5 pb-0">
             {gyeonggiTiers.length > 1 && (
-              <span class="shelf-tier-badge absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 tracking-wider">
+              <span class="shelf-tier-badge absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 dark:text-stone-500 tracking-wider">
                 제 {tierIndex + 1} 단
               </span>
             )}
-            <div class="shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-6 flex-wrap sm:flex-nowrap">
-              {tier.map(({ place, walks }) => (
-                <BookSpine place={place} walks={walks} />
-              ))}
-              <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
+            <div class="shelf-tier-scroll-wrapper relative">
+              <div class="shelf-scroll-hint-left pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-[#F6F1EA] dark:from-[#15110E] to-transparent sm:hidden opacity-0 transition-opacity duration-200"></div>
+
+              <div class="shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-10 sm:pr-6 overflow-x-auto sm:overflow-visible hide-scrollbar scroll-smooth">
+                {tier.map(({ place, walks }) => (
+                  <BookSpine place={place} walks={walks} />
+                ))}
+                <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
+              </div>
+
+              <div class="shelf-scroll-hint-right pointer-events-none absolute right-0 top-0 bottom-0 w-12 z-10 bg-gradient-to-l from-[#F6F1EA] dark:from-[#15110E] via-[#F6F1EA]/70 dark:via-[#15110E]/70 to-transparent sm:hidden transition-opacity duration-200 flex items-center justify-end pr-1">
+                <span class="text-stone-400 dark:text-stone-500 text-xs font-serif font-bold">›</span>
+              </div>
             </div>
             <div class="wood-shelf-plank"></div>
           </div>
@@ -215,15 +231,23 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
         {incheonTiers.map((tier, tierIndex) => (
           <div class="shelf-tier relative pt-5 pb-0">
             {incheonTiers.length > 1 && (
-              <span class="shelf-tier-badge absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 tracking-wider">
+              <span class="shelf-tier-badge absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 dark:text-stone-500 tracking-wider">
                 제 {tierIndex + 1} 단
               </span>
             )}
-            <div class="shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-6 flex-wrap sm:flex-nowrap">
-              {tier.map(({ place, walks }) => (
-                <BookSpine place={place} walks={walks} />
-              ))}
-              <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
+            <div class="shelf-tier-scroll-wrapper relative">
+              <div class="shelf-scroll-hint-left pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-[#F6F1EA] dark:from-[#15110E] to-transparent sm:hidden opacity-0 transition-opacity duration-200"></div>
+
+              <div class="shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-10 sm:pr-6 overflow-x-auto sm:overflow-visible hide-scrollbar scroll-smooth">
+                {tier.map(({ place, walks }) => (
+                  <BookSpine place={place} walks={walks} />
+                ))}
+                <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
+              </div>
+
+              <div class="shelf-scroll-hint-right pointer-events-none absolute right-0 top-0 bottom-0 w-12 z-10 bg-gradient-to-l from-[#F6F1EA] dark:from-[#15110E] via-[#F6F1EA]/70 dark:via-[#15110E]/70 to-transparent sm:hidden transition-opacity duration-200 flex items-center justify-end pr-1">
+                <span class="text-stone-400 dark:text-stone-500 text-xs font-serif font-bold">›</span>
+              </div>
             </div>
             <div class="wood-shelf-plank"></div>
           </div>
@@ -255,15 +279,23 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
         {recentTiers.map((tier, tierIndex) => (
           <div class="shelf-tier relative pt-5 pb-0">
             {recentTiers.length > 1 && (
-              <span class="shelf-tier-badge absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 tracking-wider">
+              <span class="shelf-tier-badge absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 dark:text-stone-500 tracking-wider">
                 제 {tierIndex + 1} 단
               </span>
             )}
-            <div class="shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-6 flex-wrap sm:flex-nowrap">
-              {tier.map(({ place, walks }) => (
-                <BookSpine place={place} walks={walks} />
-              ))}
-              <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
+            <div class="shelf-tier-scroll-wrapper relative">
+              <div class="shelf-scroll-hint-left pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-[#F6F1EA] dark:from-[#15110E] to-transparent sm:hidden opacity-0 transition-opacity duration-200"></div>
+
+              <div class="shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-10 sm:pr-6 overflow-x-auto sm:overflow-visible hide-scrollbar scroll-smooth">
+                {tier.map(({ place, walks }) => (
+                  <BookSpine place={place} walks={walks} />
+                ))}
+                <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
+              </div>
+
+              <div class="shelf-scroll-hint-right pointer-events-none absolute right-0 top-0 bottom-0 w-12 z-10 bg-gradient-to-l from-[#F6F1EA] dark:from-[#15110E] via-[#F6F1EA]/70 dark:via-[#15110E]/70 to-transparent sm:hidden transition-opacity duration-200 flex items-center justify-end pr-1">
+                <span class="text-stone-400 dark:text-stone-500 text-xs font-serif font-bold">›</span>
+              </div>
             </div>
             <div class="wood-shelf-plank"></div>
           </div>
@@ -295,15 +327,23 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
         {countTiers.map((tier, tierIndex) => (
           <div class="shelf-tier relative pt-5 pb-0">
             {countTiers.length > 1 && (
-              <span class="shelf-tier-badge absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 tracking-wider">
+              <span class="shelf-tier-badge absolute top-0 left-1 text-[10px] font-serif font-medium text-stone-400 dark:text-stone-500 tracking-wider">
                 제 {tierIndex + 1} 단
               </span>
             )}
-            <div class="shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-6 flex-wrap sm:flex-nowrap">
-              {tier.map(({ place, walks }) => (
-                <BookSpine place={place} walks={walks} />
-              ))}
-              <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
+            <div class="shelf-tier-scroll-wrapper relative">
+              <div class="shelf-scroll-hint-left pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-[#F6F1EA] dark:from-[#15110E] to-transparent sm:hidden opacity-0 transition-opacity duration-200"></div>
+
+              <div class="shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-10 sm:pr-6 overflow-x-auto sm:overflow-visible hide-scrollbar scroll-smooth">
+                {tier.map(({ place, walks }) => (
+                  <BookSpine place={place} walks={walks} />
+                ))}
+                <div class="shelf-bookend shrink-0 mb-1 ml-3 hidden sm:block" title="원목 북엔드"></div>
+              </div>
+
+              <div class="shelf-scroll-hint-right pointer-events-none absolute right-0 top-0 bottom-0 w-12 z-10 bg-gradient-to-l from-[#F6F1EA] dark:from-[#15110E] via-[#F6F1EA]/70 dark:via-[#15110E]/70 to-transparent sm:hidden transition-opacity duration-200 flex items-center justify-end pr-1">
+                <span class="text-stone-400 dark:text-stone-500 text-xs font-serif font-bold">›</span>
+              </div>
             </div>
             <div class="wood-shelf-plank"></div>
           </div>
@@ -314,8 +354,44 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
 </div>
 
 <script>
+  function updateScrollHints(row: HTMLElement) {
+    const wrapper = row.closest('.shelf-tier-scroll-wrapper');
+    if (!wrapper) return;
+    const leftHint = wrapper.querySelector<HTMLElement>('.shelf-scroll-hint-left');
+    const rightHint = wrapper.querySelector<HTMLElement>('.shelf-scroll-hint-right');
+
+    const scrollLeft = row.scrollLeft;
+    const maxScroll = row.scrollWidth - row.clientWidth;
+
+    if (leftHint) {
+      if (scrollLeft > 6) {
+        leftHint.classList.remove('opacity-0');
+        leftHint.classList.add('opacity-100');
+      } else {
+        leftHint.classList.remove('opacity-100');
+        leftHint.classList.add('opacity-0');
+      }
+    }
+
+    if (rightHint) {
+      if (maxScroll - scrollLeft > 6) {
+        rightHint.classList.remove('opacity-0');
+        rightHint.classList.add('opacity-100');
+      } else {
+        rightHint.classList.remove('opacity-100');
+        rightHint.classList.add('opacity-0');
+      }
+    }
+  }
+
+  function bindRowScroll(row: HTMLElement) {
+    row.addEventListener('scroll', () => updateScrollHints(row), { passive: true });
+    updateScrollHints(row);
+  }
+
   function layoutShelfContainers() {
     const containers = document.querySelectorAll<HTMLElement>('.shelf-tier-container');
+    const isMobile = window.innerWidth <= 600;
 
     containers.forEach((container) => {
       // 탭이 숨겨져 있어 폭이 0인 경우 패스 (활성화될 때 레이아웃 재호출)
@@ -326,30 +402,42 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
       const books = Array.from(container.querySelectorAll<HTMLElement>('.book-spine-wrapper'));
       if (books.length === 0) return;
 
-      const isSm = window.innerWidth >= 640;
-      const gap = isSm ? 16 : 12;
-      const bookendWidth = isSm ? 44 : 0;
-      const paddingSafety = isSm ? 32 : 16;
-      const maxRowWidth = Math.max(containerWidth - paddingSafety, 240);
+      let tierGroups: HTMLElement[][] = [];
 
-      // 화면 폭에 맞춰 동적 다단 선반 분할 계산
-      const tierGroups: HTMLElement[][] = [[]];
-      let currentRowWidth = 0;
-
-      books.forEach((book) => {
-        const bookWidth = book.offsetWidth || parseInt(book.style.width, 10) || 56;
-        const neededWidth = (currentRowWidth === 0 ? 0 : gap) + bookWidth;
-
-        if (currentRowWidth > 0 && currentRowWidth + neededWidth + bookendWidth > maxRowWidth) {
-          tierGroups.push([book]);
-          currentRowWidth = bookWidth;
+      if (isMobile) {
+        // 모바일(폭 <= 600px): 한 지역당 1~2단 가로 스크롤 방식 (6권 이하 1단, 초과 시 2단 분할)
+        if (books.length <= 6) {
+          tierGroups = [books];
         } else {
-          tierGroups[tierGroups.length - 1].push(book);
-          currentRowWidth += neededWidth;
+          const mid = Math.ceil(books.length / 2);
+          tierGroups = [books.slice(0, mid), books.slice(mid)];
         }
-      });
+      } else {
+        // PC·태블릿(폭 > 600px): 화면 폭에 맞춰 동적 다단 선반 분할
+        const isSm = window.innerWidth >= 640;
+        const gap = isSm ? 16 : 12;
+        const bookendWidth = isSm ? 44 : 0;
+        const paddingSafety = isSm ? 32 : 16;
+        const maxRowWidth = Math.max(containerWidth - paddingSafety, 240);
 
-      // 만약 현재 DOM의 단 구조와 책 배치가 정확히 일치한다면 DOM 조작 생략
+        tierGroups = [[]];
+        let currentRowWidth = 0;
+
+        books.forEach((book) => {
+          const bookWidth = book.offsetWidth || parseInt(book.style.width, 10) || 56;
+          const neededWidth = (currentRowWidth === 0 ? 0 : gap) + bookWidth;
+
+          if (currentRowWidth > 0 && currentRowWidth + neededWidth + bookendWidth > maxRowWidth) {
+            tierGroups.push([book]);
+            currentRowWidth = bookWidth;
+          } else {
+            tierGroups[tierGroups.length - 1].push(book);
+            currentRowWidth += neededWidth;
+          }
+        });
+      }
+
+      // 만약 현재 DOM의 단 구조와 책 배치가 정확히 일치한다면 DOM 조작 생략 (레이아웃 이동 및 출렁임 방지)
       const existingTiers = Array.from(container.querySelectorAll<HTMLElement>('.shelf-tier'));
       let isMatching = existingTiers.length === tierGroups.length;
       if (isMatching) {
@@ -369,7 +457,10 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
         }
       }
 
-      if (isMatching) return;
+      if (isMatching) {
+        container.querySelectorAll<HTMLElement>('.shelf-tier-row').forEach(updateScrollHints);
+        return;
+      }
 
       // DOM 재구성: 기존 책 DOM 노드는 그대로 appendChild하여 이벤트 리스너와 터치 상태를 100% 보존
       const fragment = document.createDocumentFragment();
@@ -385,8 +476,15 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
           tierEl.appendChild(badge);
         }
 
+        const scrollWrapper = document.createElement('div');
+        scrollWrapper.className = 'shelf-tier-scroll-wrapper relative';
+
+        const leftHint = document.createElement('div');
+        leftHint.className = 'shelf-scroll-hint-left pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-[#F6F1EA] dark:from-[#15110E] to-transparent sm:hidden opacity-0 transition-opacity duration-200';
+        scrollWrapper.appendChild(leftHint);
+
         const row = document.createElement('div');
-        row.className = 'shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-6 flex-wrap sm:flex-nowrap';
+        row.className = 'shelf-tier-row flex items-end justify-start gap-3 sm:gap-4 pl-1 pr-10 sm:pr-6 overflow-x-auto sm:overflow-visible hide-scrollbar scroll-smooth';
 
         groupBooks.forEach((b) => row.appendChild(b));
 
@@ -396,13 +494,21 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
         bookend.title = '원목 북엔드';
         row.appendChild(bookend);
 
-        tierEl.appendChild(row);
+        scrollWrapper.appendChild(row);
+
+        const rightHint = document.createElement('div');
+        rightHint.className = 'shelf-scroll-hint-right pointer-events-none absolute right-0 top-0 bottom-0 w-12 z-10 bg-gradient-to-l from-[#F6F1EA] dark:from-[#15110E] via-[#F6F1EA]/70 dark:via-[#15110E]/70 to-transparent sm:hidden transition-opacity duration-200 flex items-center justify-end pr-1';
+        rightHint.innerHTML = '<span class="text-stone-400 dark:text-stone-500 text-xs font-serif font-bold">›</span>';
+        scrollWrapper.appendChild(rightHint);
+
+        tierEl.appendChild(scrollWrapper);
 
         // 묵직한 30px 원목 선반 상판 (각 단마다 필수 유지)
         const plank = document.createElement('div');
         plank.className = 'wood-shelf-plank';
         tierEl.appendChild(plank);
 
+        bindRowScroll(row);
         fragment.appendChild(tierEl);
       });
 
@@ -556,6 +662,10 @@ const woodShelfNight = baseUrl('/assets/textures/oak-shelf-night.jpg');
   function initBookshelf() {
     setupBookshelfControls();
     setupShelfHoverInfo();
+
+    // 초기 SSR 렌더링된 행들에 스크롤 힌트 이벤트 바인딩
+    document.querySelectorAll<HTMLElement>('.shelf-tier-row').forEach(bindRowScroll);
+
     layoutShelfContainers();
 
     // 화면 폭 리사이즈 시 자동 다단 선반 재배치 (ResizeObserver)
