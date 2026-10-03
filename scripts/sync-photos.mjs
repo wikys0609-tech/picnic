@@ -16,9 +16,65 @@ import { google } from 'googleapis';
 import sharp from 'sharp';
 import decodeHeic from 'heic-decode';
 import exifr from 'exifr';
+import { matchWalksAndFolders } from '../src/lib/content/folder-matcher.js';
 
 const CACHE_FILE = path.resolve(process.cwd(), '.photo-cache.json');
 const OUTPUT_DIR = path.resolve(process.cwd(), 'public/photos');
+
+// 로컬 산책 및 장소 메타데이터 로드
+function loadLocalWalksAndPlaces() {
+  const placesDir = path.resolve(process.cwd(), 'src/content/places');
+  const walksDir = path.resolve(process.cwd(), 'src/content/walks');
+
+  const placesMap = {};
+  if (fs.existsSync(placesDir)) {
+    const placeFiles = fs.readdirSync(placesDir).filter(f => f.endsWith('.md'));
+    for (const file of placeFiles) {
+      const id = path.parse(file).name;
+      const content = fs.readFileSync(path.join(placesDir, file), 'utf8');
+      const nameMatch = content.match(/name:\s*([^\r\n]+)/);
+      const name = nameMatch ? nameMatch[1].trim().replace(/^["']|["']$/g, '') : id;
+      placesMap[id] = { id, name };
+    }
+  }
+
+  const walksList = [];
+  if (fs.existsSync(walksDir)) {
+    const walkFiles = fs.readdirSync(walksDir).filter(f => f.endsWith('.md'));
+    for (const file of walkFiles) {
+      const slug = path.parse(file).name;
+      const content = fs.readFileSync(path.join(walksDir, file), 'utf8');
+      const dateMatch = content.match(/date:\s*([^\r\n]+)/);
+      const photoFolderMatch = content.match(/photoFolder:\s*([^\r\n]+)/);
+      const date = dateMatch ? dateMatch[1].trim().replace(/^["']|["']$/g, '') : '';
+      const photoFolder = photoFolderMatch ? photoFolderMatch[1].trim().replace(/^["']|["']$/g, '') : '';
+
+      const places = [];
+      const placesBlockMatch = content.match(/places:\s*\r?\n((?:[ \t]*-[^\r\n]+\r?\n?)*)/);
+      if (placesBlockMatch && placesBlockMatch[1]) {
+        const lines = placesBlockMatch[1].split(/\r?\n/);
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('-')) {
+            places.push(trimmed.slice(1).trim().replace(/^["']|["']$/g, ''));
+          }
+        }
+      }
+
+      const placeNames = places.map(p => placesMap[p]?.name).filter(Boolean);
+
+      walksList.push({
+        slug,
+        date,
+        photoFolder,
+        places,
+        placeNames,
+      });
+    }
+  }
+
+  return { placesMap, walksList };
+}
 
 // 1. 자격 증명(Service Account Credentials) 확인 및 로드
 function loadCredentials() {
@@ -165,11 +221,56 @@ async function syncPhotos() {
     } catch {}
   };
 
+  const ensureFoldersJson = () => {
+    const foldersJsonPath = path.join(OUTPUT_DIR, 'folders.json');
+    if (!fs.existsSync(foldersJsonPath)) {
+      const localFolders = [];
+      const walksMap = {};
+      const driveNames = {};
+      if (fs.existsSync(OUTPUT_DIR)) {
+        const entries = fs.readdirSync(OUTPUT_DIR, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            const dirPath = path.join(OUTPUT_DIR, entry.name);
+            const files = fs.readdirSync(dirPath).filter(f => /\.(webp|jpg|jpeg|png)$/i.test(f));
+            localFolders.push({
+              id: entry.name,
+              name: entry.name,
+              outputDir: entry.name,
+              matchedWalkSlug: null,
+              photoCount: files.length,
+              status: 'unmatched',
+            });
+            driveNames[entry.name] = entry.name;
+          }
+        }
+      }
+      try {
+        fs.writeFileSync(
+          foldersJsonPath,
+          JSON.stringify(
+            {
+              syncedAt: new Date().toISOString(),
+              folders: localFolders,
+              walks: walksMap,
+              driveNames,
+              ambiguousWalks: [],
+            },
+            null,
+            2
+          ),
+          'utf8'
+        );
+      } catch {}
+    }
+  };
+
   if (!credentials || !rootFolderId) {
     addLog('\n💡 [안내] 구글 드라이브 연동 설정이 없습니다:');
     if (!credentials) addLog('   - GDRIVE_SERVICE_ACCOUNT_JSON 미설정');
     if (!rootFolderId) addLog('   - GDRIVE_ROOT_FOLDER_ID 미설정');
     addLog('   사진 동기화를 건너뛰고 기존 로컬 사진으로 빌드를 계속합니다.\n');
+    ensureFoldersJson();
     writeDebugInfo();
     return;
   }
@@ -294,15 +395,38 @@ async function syncPhotos() {
   debugInfo.foldersFound = folders.map(f => f.name);
   addLog(`✓ 총 ${folders.length}개의 산책 사진 폴더를 찾았습니다.\n`);
 
+  // 로컬 산책 및 장소 메타데이터 로드 후 지능형 자동 매칭 수행
+  const { placesMap, walksList } = loadLocalWalksAndPlaces();
+  const matchResult = matchWalksAndFolders(walksList, folders, placesMap);
+
+  for (const w of matchResult.warnings) {
+    addLog(w);
+  }
+
+  const matchByFolderId = new Map(matchResult.matches.map(m => [m.folderId, m]));
+  const unmatchedByFolderId = new Map(matchResult.unmatchedFolders.map(u => [u.id, u]));
+  const folderPhotoCounts = {};
+
   let totalDownloaded = 0;
   let totalCached = 0;
   let totalErrors = 0;
 
   for (const folder of folders) {
     const folderName = folder.name.trim();
-    const folderOutputDir = path.join(OUTPUT_DIR, folderName);
+    const match = matchByFolderId.get(folder.id);
+    const unmatched = unmatchedByFolderId.get(folder.id);
+
+    // 영문 안전 출력 디렉터리 이름 결정 (산책 slug 또는 drive-ID)
+    const outputDirName = match?.outputDir || unmatched?.outputDir || `drive-${folder.id}`;
+    const folderOutputDir = path.join(OUTPUT_DIR, outputDirName);
     if (!fs.existsSync(folderOutputDir)) {
       fs.mkdirSync(folderOutputDir, { recursive: true });
+    }
+
+    if (match) {
+      addLog(`🔗 [자동 연결] "${folderName}" → 산책 "${match.walkSlug}" (출력: ${outputDirName})`);
+    } else {
+      addLog(`📁 [미연결 폴더] "${folderName}" → 영문 보관 폴더: ${outputDirName}`);
     }
 
     // 폴더 내 이미지 파일 조회 (HEIC, HEIF 포함, nextPageToken으로 100장 초과 사진도 끝까지 수집)
@@ -519,13 +643,16 @@ async function syncPhotos() {
       return a.file.localeCompare(b.file, undefined, { numeric: true });
     });
 
+    folderPhotoCounts[folder.id] = folderPhotos.length;
+
     // 공개 manifest.json 작성:
     // 사이트와 함께 배포되므로 촬영 시각(takenAt)을 노출하지 않고 정렬된 순번(order)만 기록
     // (촬영 시각은 배포되지 않는 .photo-cache.json에만 보관)
     if (folderPhotos.length > 0) {
       const manifestPath = path.join(folderOutputDir, 'manifest.json');
       const manifestData = {
-        folderName,
+        folderName: outputDirName,
+        driveFolderName: folderName,
         syncedAt: new Date().toISOString(),
         photos: folderPhotos.map((p, idx) => ({
           file: p.file,
@@ -538,6 +665,51 @@ async function syncPhotos() {
         addLog(`   ⚠️ [${folderName}] manifest.json 저장 실패: ${manifestErr.message}`);
       }
     }
+  }
+
+  // 전체 사진 폴더 요약(folders.json) 생성 (작성 도구 /write 및 렌더러 연동)
+  const foldersSummary = {
+    syncedAt: new Date().toISOString(),
+    folders: folders.map(f => {
+      const m = matchByFolderId.get(f.id);
+      const u = unmatchedByFolderId.get(f.id);
+      const dirName = m?.outputDir || u?.outputDir || `drive-${f.id}`;
+      const photoCount = folderPhotoCounts[f.id] || 0;
+      const isAmbiguous = matchResult.ambiguousWalks.some(a => a.candidates.some(c => c.id === f.id));
+      return {
+        id: f.id,
+        name: f.name,
+        date: parseFolderName(f.name).date,
+        outputDir: dirName,
+        matchedWalkSlug: m?.walkSlug || null,
+        photoCount,
+        status: m ? 'matched' : (isAmbiguous ? 'ambiguous' : 'unmatched'),
+      };
+    }),
+    walks: {},
+    driveNames: {},
+    ambiguousWalks: matchResult.ambiguousWalks,
+  };
+
+  for (const m of matchResult.matches) {
+    foldersSummary.walks[m.walkSlug] = {
+      folderId: m.folderId,
+      folderName: m.folderName,
+      outputDir: m.outputDir,
+      photoCount: folderPhotoCounts[m.folderId] || 0,
+    };
+    foldersSummary.driveNames[m.folderName] = m.outputDir;
+  }
+
+  try {
+    fs.writeFileSync(
+      path.join(OUTPUT_DIR, 'folders.json'),
+      JSON.stringify(foldersSummary, null, 2),
+      'utf8'
+    );
+    addLog(`✓ public/photos/folders.json 생성 완료`);
+  } catch (err) {
+    addLog(`⚠️ folders.json 저장 실패: ${err.message}`);
   }
 
   saveCache(cache);

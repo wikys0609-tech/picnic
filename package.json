@@ -15,8 +15,9 @@
     "import": "node scripts/import-csv.mjs",
     "sync:photos": "node scripts/sync-photos.mjs",
     "generate:geo": "node scripts/generate-conquest-geojson.mjs",
-    "test": "node scripts/test-boundary.mjs && node --experimental-strip-types scripts/test-photo-sorting.mjs",
+    "test": "node scripts/test-boundary.mjs && node --experimental-strip-types scripts/test-photo-sorting.mjs && node scripts/test-photo-matching.mjs",
     "test:photos": "node --experimental-strip-types scripts/test-photo-sorting.mjs",
+    "test:matching": "node scripts/test-photo-matching.mjs",
     "test:oracle": "node scripts/test-boundary.mjs --oracle",
     "check:secrets": "node scripts/check-secrets.mjs",
     "prepare": "simple-git-hooks"

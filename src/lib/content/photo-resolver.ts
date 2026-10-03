@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { normalizeText } from './folder-matcher.js';
 
 export interface ResolvedPhotos {
   folderName: string | null;
@@ -10,15 +11,6 @@ export interface ResolvedPhotos {
 /**
  * 산책(walk)의 photoFolder 또는 date(YYYY-MM-DD)를 바탕으로
  * 실제 public/photos/ 하위의 사진 디렉터리와 사진 파일 목록을 지능적으로 탐색
- * 
- * 탐색 우선순위:
- * 1. photoFolder (예: 2026-09-20-seoul-forest, seoul-forest) 디렉터리 직접 매칭
- * 2. date (예: 2026-09-20) 날짜 단독 디렉터리 직접 매칭
- * 3. date로 시작하는 접두사 폴더 매칭 (예: 2026-09-20-*)
- * 4. photoFolder의 날짜 부분 역추적 매칭
- * 5. photoFolder에서 날짜를 뺀 장소 슬러그 매칭 (예: 2026-09-20-seoul-forest -> seoul-forest)
- * 6. 등록된 장소 ID(places) 매칭
- * 7. 폴더명 상호 포함 및 접미사 유연 매칭
  */
 export function resolveWalkPhotos(
   photoFolder?: string,
@@ -33,8 +25,58 @@ export function resolveWalkPhotos(
 
   let matchedDirName: string | null = null;
 
-  // 1. photoFolder 명시된 경우 우선 확인
-  if (photoFolder && fs.existsSync(path.join(photosRoot, photoFolder))) {
+  // 0. public/photos/folders.json 요약 매핑 확인 (동기화 파이프라인 연동)
+  const foldersMetaPath = path.join(photosRoot, 'folders.json');
+  if (fs.existsSync(foldersMetaPath)) {
+    try {
+      const meta = JSON.parse(fs.readFileSync(foldersMetaPath, 'utf8'));
+
+      // 0-1. photoFolder 명시 시 driveNames 또는 folders 매핑 확인
+      if (photoFolder) {
+        if (meta.driveNames && meta.driveNames[photoFolder]) {
+          const target = meta.driveNames[photoFolder];
+          if (fs.existsSync(path.join(photosRoot, target))) {
+            matchedDirName = target;
+          }
+        }
+        if (!matchedDirName && Array.isArray(meta.folders)) {
+          const normTarget = normalizeText(photoFolder);
+          const found = meta.folders.find(
+            (f: any) =>
+              f.id === photoFolder ||
+              f.outputDir === photoFolder ||
+              normalizeText(f.name) === normTarget
+          );
+          if (found && fs.existsSync(path.join(photosRoot, found.outputDir))) {
+            matchedDirName = found.outputDir;
+          }
+        }
+      }
+
+      // 0-2. date가 주어진 경우 folders.json 내에서 날짜 및 장소 기반 자동 탐색
+      if (!matchedDirName && date && Array.isArray(meta.folders)) {
+        const dateFolders = meta.folders.filter((f: any) => f.date === date);
+        if (dateFolders.length === 1 && fs.existsSync(path.join(photosRoot, dateFolders[0].outputDir))) {
+          matchedDirName = dateFolders[0].outputDir;
+        } else if (dateFolders.length > 1 && places && places.length > 0) {
+          const placeKeys = places.map((p) => {
+            const id = typeof p === 'string' ? p : p.id;
+            return normalizeText(id);
+          });
+          const match = dateFolders.find((f: any) => {
+            const normName = normalizeText(f.name);
+            return placeKeys.some((pk) => normName.includes(pk));
+          });
+          if (match && fs.existsSync(path.join(photosRoot, match.outputDir))) {
+            matchedDirName = match.outputDir;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 1. photoFolder 명시된 경우 디렉터리 직접 확인
+  if (!matchedDirName && photoFolder && fs.existsSync(path.join(photosRoot, photoFolder))) {
     matchedDirName = photoFolder;
   }
 

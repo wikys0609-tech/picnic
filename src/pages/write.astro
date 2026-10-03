@@ -19,7 +19,6 @@ import {
   Save,
   Send,
   Layers,
-  Copy,
   X,
 } from '@lucide/astro';
 
@@ -387,56 +386,96 @@ const initialWalks = allWalks.map((w) => ({
           </div>
         </div>
 
-        <!-- 4. 사진 및 커버 설정 (선택 사항) -->
+        <!-- 4. 사진 폴더 연결 및 커버 설정 (선택 사항) -->
         <div id="section-photo-settings" class="bg-white/90 dark:bg-stone-900/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-4">
           <div class="border-b border-stone-100 dark:border-stone-800/80 pb-3">
             <h2 class="text-base font-serif font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
               <Layers class="w-4 h-4 text-forest-600 dark:text-forest-400" />
-              <span>4. 사진 폴더 및 캡션 설정 (선택)</span>
+              <span>4. 사진 폴더 연결 및 커버 설정 (선택)</span>
             </h2>
             <p class="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-              구글 드라이브 동기화 폴더명과 대표 커버 사진을 지정합니다.
+              구글 드라이브 사진 폴더가 방문 일자와 장소를 기준으로 자동 감지되어 연결됩니다.
             </p>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <div class="flex items-center justify-between mb-1">
-                <label for="input-photo-folder" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300">
-                  구글 드라이브 사진 폴더명
-                </label>
-                <button
-                  id="btn-copy-photo-folder"
-                  type="button"
-                  title="이 폴더명을 클립보드에 복사"
-                  class="inline-flex items-center gap-1 text-[11px] font-serif font-medium text-forest-700 dark:text-forest-400 hover:text-forest-800 dark:hover:text-forest-300 cursor-pointer transition-colors"
-                >
-                  <Copy class="w-3 h-3" />
-                  <span id="copy-folder-text">폴더명 복사</span>
-                </button>
-              </div>
-              <input
-                type="text"
-                id="input-photo-folder"
-                placeholder="예: 2026-09-30-seoul-forest"
-                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono focus:ring-2 focus:ring-forest-500/50 outline-none"
-              />
-              <p class="text-[11px] text-stone-400 mt-1 font-serif">
-                스마트폰 드라이브 앱에서 이 이름으로 폴더를 만들고 사진을 넣으시면 됩니다.
-              </p>
+          <!-- 사진 자동 감지 상태 카드 -->
+          <div id="photo-match-card" class="p-4 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/80 dark:bg-stone-800/50 transition-all text-xs font-serif space-y-1.5">
+            <div id="photo-match-header" class="flex items-center gap-2 font-bold text-stone-700 dark:text-stone-300">
+              <span id="photo-match-icon">⚪</span>
+              <span id="photo-match-title">사진 폴더 상태 확인 중...</span>
+            </div>
+            <p id="photo-match-desc" class="text-stone-500 dark:text-stone-400 leading-relaxed">
+              방문 일자와 장소를 선택하시면 일치하는 사진 폴더를 자동으로 찾아 연결합니다.
+            </p>
+          </div>
+
+          <!-- 후보 여러 개일 때 선택 드롭다운 (기본 숨김) -->
+          <div id="ambiguous-selector-wrapper" class="hidden p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2">
+            <label for="select-ambiguous-folder" class="block text-xs font-serif font-bold text-amber-900 dark:text-amber-200">
+              연결할 사진 폴더를 선택해 주세요:
+            </label>
+            <select
+              id="select-ambiguous-folder"
+              class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-white dark:bg-stone-800 border border-amber-300 dark:border-amber-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-amber-500 outline-none"
+            >
+              <option value="">-- 연결할 사진 폴더를 선택하세요 --</option>
+            </select>
+            <p class="text-[11px] text-amber-700 dark:text-amber-400 font-serif">
+              해당 날짜에 여러 폴더가 발견되었습니다. 이 산책 기록에 연결할 폴더를 골라주세요.
+            </p>
+          </div>
+
+          <!-- 고급 / 수동 폴더 지정 접이식 옵션 -->
+          <div class="pt-2 border-t border-stone-100 dark:border-stone-800/80 space-y-3">
+            <div class="flex items-center justify-between">
+              <button
+                type="button"
+                id="btn-toggle-manual-folder"
+                class="text-xs font-serif text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <span>⚙️ 폴더명을 직접 지정하거나 변경하고 싶으신가요?</span>
+                <span id="manual-folder-toggle-icon">▼</span>
+              </button>
             </div>
 
-            <div>
-              <label for="input-cover" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
-                대표 커버 이미지명
-              </label>
-              <input
-                type="text"
-                id="input-cover"
-                value="cover.webp"
-                placeholder="cover.webp"
-                class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
-              />
+            <!-- 수동 입력 폼 (기본 접힘) -->
+            <div id="manual-folder-wrapper" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-stone-50/80 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700">
+              <div>
+                <label for="input-photo-folder" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+                  직접 지정할 폴더명 (또는 드라이브 폴더 ID)
+                </label>
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    id="input-photo-folder"
+                    placeholder="비워두면 자동 감지 모드"
+                    class="flex-1 px-3 py-2 text-xs rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono focus:ring-2 focus:ring-forest-500/50 outline-none"
+                  />
+                  <button
+                    type="button"
+                    id="btn-reset-auto-folder"
+                    class="px-2.5 py-1 text-xs rounded-xl bg-stone-200 dark:bg-stone-700 hover:bg-stone-300 dark:hover:bg-stone-600 text-stone-700 dark:text-stone-200 font-serif whitespace-nowrap cursor-pointer transition-colors"
+                  >
+                    자동 감지로 복귀
+                  </button>
+                </div>
+                <p class="text-[11px] text-stone-400 mt-1 font-serif">
+                  특정 폴더를 강제 지정할 때만 입력하세요. 비우면 일자·장소로 자동 연결됩니다.
+                </p>
+              </div>
+
+              <div>
+                <label for="input-cover" class="block text-xs font-serif font-medium text-stone-700 dark:text-stone-300 mb-1">
+                  대표 커버 이미지명
+                </label>
+                <input
+                  type="text"
+                  id="input-cover"
+                  value="cover.webp"
+                  placeholder="cover.webp"
+                  class="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-forest-500/50 outline-none"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -821,6 +860,7 @@ const initialWalks = allWalks.map((w) => ({
   import { baseUrl } from '@/lib/utils/url';
   import { generatePlaceMarkdown, generateWalkMarkdown, type PlaceInput, type WalkInput } from '@/lib/content/markdown-generator';
   import { loadKakaoSDK } from '@/lib/map/kakao-loader';
+  import { normalizeText, parseFolderName } from '@/lib/content/folder-matcher.js';
 
   interface ClientPlace {
     id: string;
@@ -978,6 +1018,7 @@ const initialWalks = allWalks.map((w) => ({
       sectionWalkContent?.classList.remove('hidden');
       sectionPhotoSettings?.classList.remove('hidden');
       if (btnSubmitText) btnSubmitText.textContent = '서가에 보관하기';
+      updatePhotoMatchStatus();
     } else if (mode === 'edit-walk') {
       tabEditWalk?.classList.add('font-bold', 'text-forest-700', 'dark:text-forest-400', 'border-forest-600', 'dark:border-forest-400');
       editWalkSelector?.classList.remove('hidden');
@@ -1024,6 +1065,7 @@ const initialWalks = allWalks.map((w) => ({
     selectedPlaceIds = [...(walk.places || [])];
     renderSelectedPlaces();
     updateCharAndParaCount();
+    updatePhotoMatchStatus();
   });
 
   // ==========================================
@@ -1071,61 +1113,222 @@ const initialWalks = allWalks.map((w) => ({
       chip.querySelector('button')?.addEventListener('click', () => {
         selectedPlaceIds = selectedPlaceIds.filter((p) => p !== id);
         renderSelectedPlaces();
-        updateAutoPhotoFolder();
+        updatePhotoMatchStatus();
       });
 
       selectedPlacesContainer.appendChild(chip);
     });
   }
 
-  // 사진 폴더명 자동 완성 & 원터치 복사 핸들러
-  const inputPhotoFolder = document.getElementById('input-photo-folder') as HTMLInputElement | null;
-  const btnCopyPhotoFolder = document.getElementById('btn-copy-photo-folder');
-  const copyFolderText = document.getElementById('copy-folder-text');
-  let userEditedPhotoFolder = false;
-
-  inputPhotoFolder?.addEventListener('input', () => {
-    userEditedPhotoFolder = true;
-  });
-
-  function updateAutoPhotoFolder() {
-    if (userEditedPhotoFolder && inputPhotoFolder?.value.trim()) return;
-    const dateVal = (document.getElementById('input-date') as HTMLInputElement)?.value || '';
-    const firstPlace = selectedPlaceIds[0] || '';
-    if (dateVal && firstPlace && inputPhotoFolder) {
-      inputPhotoFolder.value = `${dateVal}-${firstPlace}`;
-    }
+  // ==========================================
+  // 사진 폴더 지능형 자동 감지 및 매칭 관리
+  // ==========================================
+  interface DriveFolderMeta {
+    id: string;
+    name: string;
+    date?: string | null;
+    outputDir?: string;
+    photoCount?: number;
+    status?: string;
   }
 
-  document.getElementById('input-date')?.addEventListener('change', updateAutoPhotoFolder);
+  let remoteFolders: DriveFolderMeta[] = [];
+  let currentPhotoMatchState: 'matched' | 'unmatched' | 'ambiguous' | 'manual' | 'no-date' = 'no-date';
 
-  btnCopyPhotoFolder?.addEventListener('click', async () => {
-    updateAutoPhotoFolder();
-    const folderName = inputPhotoFolder?.value.trim() || '';
-    if (!folderName) {
-      alert('복사할 사진 폴더 이름이 비어있습니다. 날짜와 장소를 먼저 선택해 주세요.');
+  const photoMatchCard = document.getElementById('photo-match-card');
+  const photoMatchIcon = document.getElementById('photo-match-icon');
+  const photoMatchTitle = document.getElementById('photo-match-title');
+  const photoMatchDesc = document.getElementById('photo-match-desc');
+  const ambiguousWrapper = document.getElementById('ambiguous-selector-wrapper');
+  const selectAmbiguousFolder = document.getElementById('select-ambiguous-folder') as HTMLSelectElement | null;
+  const btnToggleManualFolder = document.getElementById('btn-toggle-manual-folder');
+  const manualFolderWrapper = document.getElementById('manual-folder-wrapper');
+  const manualFolderToggleIcon = document.getElementById('manual-folder-toggle-icon');
+  const inputPhotoFolder = document.getElementById('input-photo-folder') as HTMLInputElement | null;
+  const btnResetAutoFolder = document.getElementById('btn-reset-auto-folder');
+
+  // 폴더 데이터 로드 (public/photos/folders.json)
+  async function loadFoldersData() {
+    try {
+      const res = await fetch(baseUrl('photos/folders.json'));
+      if (res.ok) {
+        const data = await res.json();
+        remoteFolders = Array.isArray(data.folders) ? data.folders : [];
+      }
+    } catch {
+      // folders.json 미존재 시 빈 배열 유지
+    }
+    updatePhotoMatchStatus();
+  }
+
+  // 접이식 수동 옵션 토글
+  btnToggleManualFolder?.addEventListener('click', () => {
+    const isHidden = manualFolderWrapper?.classList.contains('hidden');
+    if (isHidden) {
+      manualFolderWrapper?.classList.remove('hidden');
+      if (manualFolderToggleIcon) manualFolderToggleIcon.textContent = '▲';
+    } else {
+      manualFolderWrapper?.classList.add('hidden');
+      if (manualFolderToggleIcon) manualFolderToggleIcon.textContent = '▼';
+    }
+  });
+
+  // 수동 입력 초기화 (자동 감지로 복귀)
+  btnResetAutoFolder?.addEventListener('click', () => {
+    if (inputPhotoFolder) {
+      inputPhotoFolder.value = '';
+    }
+    updatePhotoMatchStatus();
+  });
+
+  inputPhotoFolder?.addEventListener('input', () => {
+    updatePhotoMatchStatus();
+  });
+
+  selectAmbiguousFolder?.addEventListener('change', () => {
+    updatePhotoMatchStatus();
+  });
+
+  function updatePhotoMatchStatus() {
+    const manualVal = inputPhotoFolder?.value.trim() || '';
+    const dateVal = (document.getElementById('input-date') as HTMLInputElement)?.value || '';
+
+    // 1. 사용자가 수동으로 폴더명을 입력한 경우
+    if (manualVal) {
+      currentPhotoMatchState = 'manual';
+      ambiguousWrapper?.classList.add('hidden');
+
+      if (photoMatchCard) {
+        photoMatchCard.className = 'p-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-950 dark:text-indigo-200 transition-all text-xs font-serif space-y-1.5';
+      }
+      if (photoMatchIcon) photoMatchIcon.textContent = '✏️';
+      if (photoMatchTitle) photoMatchTitle.textContent = `수동 지정 모드: "${manualVal}"`;
+      if (photoMatchDesc) photoMatchDesc.textContent = '폴더명이 직접 지정되었습니다. 글 발행 시 이 폴더명이 frontmatter에 기록됩니다. 자동 감지로 돌아가려면 [자동 감지로 복귀]를 누르세요.';
       return;
     }
 
-    try {
-      await navigator.clipboard.writeText(folderName);
-      if (copyFolderText) {
-        copyFolderText.textContent = '✓ 복사됨!';
-        setTimeout(() => {
-          if (copyFolderText) copyFolderText.textContent = '폴더명 복사';
-        }, 2000);
+    // 2. 날짜 미선택
+    if (!dateVal) {
+      currentPhotoMatchState = 'no-date';
+      ambiguousWrapper?.classList.add('hidden');
+
+      if (photoMatchCard) {
+        photoMatchCard.className = 'p-4 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/80 dark:bg-stone-800/50 text-stone-600 dark:text-stone-400 transition-all text-xs font-serif space-y-1.5';
       }
-    } catch {
-      inputPhotoFolder?.select();
-      document.execCommand('copy');
-      if (copyFolderText) {
-        copyFolderText.textContent = '✓ 복사됨!';
-        setTimeout(() => {
-          if (copyFolderText) copyFolderText.textContent = '폴더명 복사';
-        }, 2000);
-      }
+      if (photoMatchIcon) photoMatchIcon.textContent = '⚪';
+      if (photoMatchTitle) photoMatchTitle.textContent = '방문 일자를 먼저 선택해 주세요';
+      if (photoMatchDesc) photoMatchDesc.textContent = '일자를 선택하시면 구글 드라이브의 해당 날짜 사진 폴더가 자동으로 감지됩니다.';
+      return;
     }
-  });
+
+    // 3. 해당 날짜 폴더 필터링
+    const dateFolders = remoteFolders.filter((f) => {
+      const parsed = parseFolderName(f.name);
+      return parsed.date === dateVal;
+    });
+
+    // 3-1. 해당 날짜에 폴더가 전혀 없는 경우
+    if (dateFolders.length === 0) {
+      currentPhotoMatchState = 'unmatched';
+      ambiguousWrapper?.classList.add('hidden');
+
+      if (photoMatchCard) {
+        photoMatchCard.className = 'p-4 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/80 dark:bg-stone-800/40 text-stone-600 dark:text-stone-400 transition-all text-xs font-serif space-y-1.5';
+      }
+      if (photoMatchIcon) photoMatchIcon.textContent = '⚪';
+      if (photoMatchTitle) photoMatchTitle.textContent = '연결된 사진 폴더 없음 (글만 저장 가능)';
+      if (photoMatchDesc) photoMatchDesc.textContent = `스마트폰 드라이브에 아직 사진 폴더가 없어도 괜찮습니다. 글을 먼저 저장하고, 나중에 스마트폰 드라이브에 "${dateVal} 장소명" 폴더를 올리시면 다음 동기화 때 자동으로 연결됩니다.`;
+      return;
+    }
+
+    // 3-2. 장소명/장소ID 매칭 시도
+    const placeNames = selectedPlaceIds
+      .map((id) => {
+        const p = existingPlaces.find((x: any) => x.id === id) || pendingNewPlaces.get(id);
+        return p ? normalizeText(p.name) : normalizeText(id);
+      })
+      .filter(Boolean);
+    const placeIds = selectedPlaceIds.map((id) => normalizeText(id)).filter(Boolean);
+
+    const placeCandidates = dateFolders.filter((f) => {
+      const parsed = parseFolderName(f.name);
+      const rem = parsed.normalizedRemainder;
+      const full = parsed.normalized;
+      const matchesName = placeNames.some((pn) => rem.includes(pn) || (pn.includes(rem) && rem.length >= 2));
+      const matchesId = placeIds.some((pid) => rem.includes(pid) || full.includes(pid));
+      return matchesName || matchesId;
+    });
+
+    // 상태 A: 장소명 일치 후보가 정확히 1개인 경우 -> 자동 연결됨
+    if (placeCandidates.length === 1) {
+      const matched = placeCandidates[0];
+      currentPhotoMatchState = 'matched';
+      ambiguousWrapper?.classList.add('hidden');
+
+      if (photoMatchCard) {
+        photoMatchCard.className = 'p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 transition-all text-xs font-serif space-y-1.5';
+      }
+      if (photoMatchIcon) photoMatchIcon.textContent = '🟢';
+      if (photoMatchTitle) photoMatchTitle.textContent = `사진 폴더 자동 연결됨: "${matched.name}"`;
+      if (photoMatchDesc) photoMatchDesc.textContent = `스마트폰 드라이브의 사진 폴더(${matched.photoCount ?? 0}장)와 자동으로 연결되었습니다. 따로 폴더명을 복사하거나 입력하실 필요가 없습니다.`;
+      return;
+    }
+
+    // 상태 B: 장소명 일치 후보는 없지만, 그날 산책 폴더가 딱 1개인 경우 (단일 날짜 폴백 매칭)
+    if (placeCandidates.length === 0 && dateFolders.length === 1) {
+      const matched = dateFolders[0];
+      currentPhotoMatchState = 'matched';
+      ambiguousWrapper?.classList.add('hidden');
+
+      if (photoMatchCard) {
+        photoMatchCard.className = 'p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 transition-all text-xs font-serif space-y-1.5';
+      }
+      if (photoMatchIcon) photoMatchIcon.textContent = '🟢';
+      if (photoMatchTitle) photoMatchTitle.textContent = `사진 폴더 자동 연결됨 (단일 폴더): "${matched.name}"`;
+      if (photoMatchDesc) photoMatchDesc.textContent = `해당 날짜에 드라이브 폴더가 1개여서 "${matched.name}"(${matched.photoCount ?? 0}장)와 자동으로 연결되었습니다.`;
+      return;
+    }
+
+    // 상태 C: 후보가 여러 개인 경우 (모호함 -> 사용자 선택 필요)
+    const candidateList = placeCandidates.length > 1 ? placeCandidates : dateFolders;
+    currentPhotoMatchState = 'ambiguous';
+    ambiguousWrapper?.classList.remove('hidden');
+
+    if (selectAmbiguousFolder) {
+      const currentVal = selectAmbiguousFolder.value;
+      selectAmbiguousFolder.innerHTML = '<option value="">-- 연결할 사진 폴더를 선택하세요 --</option>';
+      candidateList.forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c.name;
+        opt.textContent = `${c.name} (${c.photoCount ?? 0}장)`;
+        if (opt.value === currentVal) opt.selected = true;
+        selectAmbiguousFolder.appendChild(opt);
+      });
+    }
+
+    const selectedFolder = selectAmbiguousFolder?.value || '';
+
+    if (photoMatchCard) {
+      photoMatchCard.className = 'p-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 transition-all text-xs font-serif space-y-1.5';
+    }
+    if (photoMatchIcon) photoMatchIcon.textContent = '🟡';
+    if (photoMatchTitle) {
+      photoMatchTitle.textContent = selectedFolder
+        ? `후보 폴더 선택 완료: "${selectedFolder}"`
+        : `후보 폴더 여러 개 발견 (${candidateList.length}개) - 선택 필요`;
+    }
+    if (photoMatchDesc) {
+      photoMatchDesc.textContent = selectedFolder
+        ? `선택하신 "${selectedFolder}" 폴더로 사진이 연결됩니다.`
+        : `동일한 날짜에 여러 폴더가 발견되었습니다. 아래 드롭다운에서 연결할 폴더를 직접 선택해 주세요.`;
+    }
+  }
+
+  document.getElementById('input-date')?.addEventListener('change', updatePhotoMatchStatus);
+  document.getElementById('input-date')?.addEventListener('input', updatePhotoMatchStatus);
+
+  // 초기 폴더 정보 로드
+  loadFoldersData();
 
   // 기존 서가 장소 빠른 추가 버튼 이벤트
   document.querySelectorAll('.btn-quick-add-place').forEach((btn) => {
@@ -1134,7 +1337,7 @@ const initialWalks = allWalks.map((w) => ({
       if (placeId && !selectedPlaceIds.includes(placeId)) {
         selectedPlaceIds.push(placeId);
         renderSelectedPlaces();
-        updateAutoPhotoFolder();
+        updatePhotoMatchStatus();
       }
     });
   });
@@ -1716,7 +1919,19 @@ const initialWalks = allWalks.map((w) => ({
       walkSlug = `${date}-${firstPlace}`;
     }
 
-    const photoFolder = (document.getElementById('input-photo-folder') as HTMLInputElement).value.trim() || walkSlug;
+    // 사진 폴더 결정:
+    // 1. 수동 지정값이 있으면 그것을 사용
+    // 2. 후보 여러 개 상태에서 드롭다운으로 선택한 값이 있으면 그것을 사용
+    // 3. 자동 매칭 상태이거나 폴더가 없는 경우 빈 문자열 (마크다운에서 생략되어 자동 감지 위임)
+    let photoFolder = '';
+    const manualVal = (document.getElementById('input-photo-folder') as HTMLInputElement)?.value.trim();
+    const ambiguousVal = (document.getElementById('select-ambiguous-folder') as HTMLSelectElement)?.value.trim();
+
+    if (manualVal) {
+      photoFolder = manualVal;
+    } else if (currentPhotoMatchState === 'ambiguous' && ambiguousVal) {
+      photoFolder = ambiguousVal;
+    }
     const cover = (document.getElementById('input-cover') as HTMLInputElement).value.trim() || 'cover.webp';
 
     const walkObj: WalkInput = {
