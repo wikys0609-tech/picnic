@@ -350,7 +350,34 @@ async function syncPhotos() {
         fs.existsSync(targetFilePath)
       ) {
         totalCached++;
-        takenAt = cached.takenAt ?? null;
+        if ('takenAt' in cached) {
+          // 이미 신규 파이프라인에서 처리되어 takenAt 필드가 존재하는 경우
+          takenAt = cached.takenAt ?? null;
+        } else {
+          // 기존 캐시 보정: 이번 변경 전 캐시되어 takenAt이 없는 사진은 원본에서 EXIF를 다시 읽어 캐시에 채움 (WebP 재변환 불필요)
+          try {
+            const downloadRes = await drive.files.get(
+              { fileId: file.id, alt: 'media', supportsAllDrives: true },
+              { responseType: 'stream' }
+            );
+            const buffer = await streamToBuffer(downloadRes.data);
+            try {
+              const exif = await exifr.parse(buffer, ['DateTimeOriginal']);
+              if (exif?.DateTimeOriginal) {
+                const d = exif.DateTimeOriginal instanceof Date ? exif.DateTimeOriginal : new Date(exif.DateTimeOriginal);
+                if (!isNaN(d.getTime())) {
+                  takenAt = d.toISOString();
+                }
+              }
+            } catch {}
+            cached.takenAt = takenAt;
+            cached.syncedAt = new Date().toISOString();
+            addLog(`   ℹ️ [기존 캐시 보정] ${file.name}: 원본 EXIF에서 촬영 시각 보정 완료 (${takenAt ? takenAt : '촬영 시각 없음'})`);
+          } catch (err) {
+            addLog(`   ⚠️ [캐시 보정 실패] ${file.name}: ${err.message}`);
+            cached.takenAt = null;
+          }
+        }
       } else {
         // 새 파일 또는 변경된 파일 다운로드
         try {
@@ -463,13 +490,47 @@ async function syncPhotos() {
       });
     }
 
-    // 폴더별 manifest.json 작성 (사진 목록, 원본명, EXIF 촬영 시각)
+    // 앨범 사진 정렬 규칙 적용:
+    // 1. cover.* 파일 최우선 (항상 맨 첫 장 표지)
+    // 2. EXIF 촬영 시각(takenAt) 오름차순
+    // 3. 촬영 시각이 없는 사진은 파일명 자연 정렬
+    // 4. 촬영 시각이 동일한 사진 간에는 파일명 자연 정렬
+    const coverPhoto = folderPhotos.find(p => p.file.toLowerCase().startsWith('cover.'));
+    const coverFileName = coverPhoto?.file || null;
+
+    folderPhotos.sort((a, b) => {
+      if (coverFileName) {
+        if (a.file === coverFileName && b.file !== coverFileName) return -1;
+        if (b.file === coverFileName && a.file !== coverFileName) return 1;
+      }
+
+      const timeA = a.takenAt;
+      const timeB = b.takenAt;
+
+      if (timeA && timeB) {
+        const diff = new Date(timeA).getTime() - new Date(timeB).getTime();
+        if (diff !== 0) return diff;
+      } else if (timeA && !timeB) {
+        return -1;
+      } else if (!timeA && timeB) {
+        return 1;
+      }
+
+      return a.file.localeCompare(b.file, undefined, { numeric: true });
+    });
+
+    // 공개 manifest.json 작성:
+    // 사이트와 함께 배포되므로 촬영 시각(takenAt)을 노출하지 않고 정렬된 순번(order)만 기록
+    // (촬영 시각은 배포되지 않는 .photo-cache.json에만 보관)
     if (folderPhotos.length > 0) {
       const manifestPath = path.join(folderOutputDir, 'manifest.json');
       const manifestData = {
         folderName,
         syncedAt: new Date().toISOString(),
-        photos: folderPhotos,
+        photos: folderPhotos.map((p, idx) => ({
+          file: p.file,
+          order: idx + 1,
+        })),
       };
       try {
         fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2), 'utf8');

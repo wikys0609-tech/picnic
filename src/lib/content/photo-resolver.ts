@@ -132,19 +132,21 @@ export function resolveWalkPhotos(
     return { folderName: matchedDirName, coverFile: null, photoFiles: [] };
   }
 
-  // manifest.json이 존재하면 로드하여 EXIF 촬영 시각(takenAt) 매핑 구성
-  const manifestMap: Record<string, string | null> = {};
+  // manifest.json이 존재하면 로드하여 정렬 순번(order) 매핑 구성
+  const orderMap: Record<string, number> = {};
   const manifestPath = path.join(targetDir, 'manifest.json');
   if (fs.existsSync(manifestPath)) {
     try {
       const manifestRaw = fs.readFileSync(manifestPath, 'utf8');
       const manifestData = JSON.parse(manifestRaw);
       if (Array.isArray(manifestData?.photos)) {
-        for (const item of manifestData.photos) {
-          if (item?.file) {
-            manifestMap[item.file] = item.takenAt || null;
+        manifestData.photos.forEach((item: any, idx: number) => {
+          if (typeof item === 'string') {
+            orderMap[item] = idx + 1;
+          } else if (item?.file) {
+            orderMap[item.file] = typeof item.order === 'number' ? item.order : idx + 1;
           }
-        }
+        });
       }
     } catch {}
   }
@@ -159,24 +161,24 @@ export function resolveWalkPhotos(
 
   // 사진 정렬 기준:
   // 1. coverFile 최우선 (항상 맨 첫 장 표지 유지)
-  // 2. EXIF 촬영 시각(DateTimeOriginal / takenAt) 오름차순 (시간순)
-  // 3. 촬영 시각이 없는 사진(스크린샷, 메신저 등)은 파일 이름 자연 정렬(Natural Numeric Sort)로 뒤에 배치
-  // 4. 촬영 시각이 동일한 경우 파일 이름 자연 정렬로 순서 결정
+  // 2. manifest.json의 정렬 순번(order) 오름차순 (sync 단계에서 EXIF 시간순으로 계산 완료)
+  // 3. manifest에 없는 파일은 파일 이름 자연 정렬(Natural Numeric Sort)로 뒤에 배치
+  // 4. order가 동일하거나 없는 경우 파일 이름 자연 정렬로 순서 결정
   const comparePhotos = (a: string, b: string): number => {
     if (coverFile) {
       if (a === coverFile && b !== coverFile) return -1;
       if (b === coverFile && a !== coverFile) return 1;
     }
 
-    const timeA = manifestMap[a];
-    const timeB = manifestMap[b];
+    const orderA = orderMap[a];
+    const orderB = orderMap[b];
 
-    if (timeA && timeB) {
-      const diff = new Date(timeA).getTime() - new Date(timeB).getTime();
+    if (orderA !== undefined && orderB !== undefined) {
+      const diff = orderA - orderB;
       if (diff !== 0) return diff;
-    } else if (timeA && !timeB) {
-      return -1; // 촬영 시각 있는 사진 우선
-    } else if (!timeA && timeB) {
+    } else if (orderA !== undefined && orderB === undefined) {
+      return -1; // manifest 순번이 있는 사진 우선
+    } else if (orderA === undefined && orderB !== undefined) {
       return 1;
     }
 
