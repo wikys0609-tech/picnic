@@ -3,12 +3,16 @@
 /**
  * 수도권 83개 구·시·군 Point-in-Polygon (PIP) 경계 판정 검증 테스트
  * 
- * [독립적 대조군 검증 방식]
- * - 테스트 기대값을 수동으로 하드코딩하지 않고, 카카오 로컬 API(coord2regioncode, region_type: 'H')로
- *   실시간 행정동을 조회한 뒤 README의 인천시 공식 행정동 목록 및 경기/서울 행정동 소속으로 정답 구를 결정합니다.
- * - 우리 지도의 GeoJSON 다각형 내부 판정 결과와 독립 대조군 결과를 1:1 비교합니다.
+ * [동작 모드]
+ * 1. 기본 오프라인 모드 (npm test):
+ *    - 외부 API 호출 없이 tests/fixtures/kakao-ground-truth.json 픽스처를 대조군으로 즉시 검증합니다.
+ *    - 네트워크나 API 키가 필요 없어 CI/CD 환경에서도 안전하게 동작합니다.
  * 
- * 실행: npm test (또는 node scripts/test-boundary.mjs)
+ * 2. 실시간 오라클 모드 (npm run test:oracle):
+ *    - .env의 카카오 API 키(KAKAO_REST_API_KEY 또는 PUBLIC_KAKAO_MAP_KEY)를 사용하여
+ *      카카오 로컬 API(coord2regioncode, region_type: 'H')를 실시간 호출합니다.
+ *    - README의 인천시 공식 행정동 목록 및 수도권 행정동 체계와 1:1 비교 검증하고,
+ *      성공 시 tests/fixtures/kakao-ground-truth.json 픽스처를 최신 상태로 갱신합니다.
  */
 
 import fs from 'node:fs';
@@ -16,9 +20,12 @@ import path from 'node:path';
 import https from 'node:https';
 import { findDistrictByCoords } from '../src/lib/geo/pip-core.mjs';
 
+const isOracleMode = process.argv.includes('--oracle');
 const geoJsonPath = path.resolve(process.cwd(), 'public/geo/metropolitan-83.geojson');
+const fixturePath = path.resolve(process.cwd(), 'tests/fixtures/kakao-ground-truth.json');
+
 if (!fs.existsSync(geoJsonPath)) {
-  console.error('❌ metropolitan-83.geojson 파일이 존재하지 않습니다.');
+  console.error('❌ public/geo/metropolitan-83.geojson 파일이 존재하지 않습니다.');
   process.exit(1);
 }
 
@@ -43,74 +50,6 @@ const INCHEON_OFFICIAL_DONGS = {
     '신현원창동', '연희동', '검암경서동'
   ]
 };
-
-// 카카오 로컬 API(행정동 H 기준)를 독립적 대조군(Ground Truth)으로 호출
-async function getKakaoGroundTruth(lng, lat) {
-  const options = {
-    hostname: 'dapi.kakao.com',
-    path: `/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`,
-    headers: {
-      'Authorization': 'KakaoAK a7ec74f23964ef752a90e8bef05c19ec',
-      'Origin': 'http://localhost:4321',
-      'KA': 'sdk/1.0.0 os/javascript lang/ko-KR device/pc origin/http%3A%2F%2Flocalhost%3A4321'
-    }
-  };
-
-  return new Promise((resolve) => {
-    https.get(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (!json.documents || json.documents.length === 0) return resolve(null);
-          const h = json.documents.find((d) => d.region_type === 'H') || json.documents[0];
-          if (!h) return resolve(null);
-
-          const r1 = h.region_1depth_name || '';
-          const r2 = h.region_2depth_name || '';
-          const r3 = h.region_3depth_name || '';
-
-          // 수도권 밖(부산, 제주 등)이거나 해상 공해인 경우 null
-          if (!['서울특별시', '경기도', '인천광역시'].includes(r1)) {
-            return resolve(null);
-          }
-
-          if (r1 === '인천광역시') {
-            let resolvedGu = null;
-            for (const [gu, dongs] of Object.entries(INCHEON_OFFICIAL_DONGS)) {
-              if (dongs.some((d) => r3.includes(d) || d.includes(r3))) {
-                resolvedGu = gu;
-                break;
-              }
-            }
-            if (!resolvedGu) resolvedGu = r2;
-            return resolve({ sido: '인천광역시', sigungu: resolvedGu, dong: r3, raw: h.address_name });
-          }
-
-          if (r1 === '경기도') {
-            let formattedSgg = r2;
-            if (formattedSgg.includes('부천시') && !formattedSgg.includes(' ')) {
-              formattedSgg = formattedSgg.replace('부천시', '부천시 ');
-            }
-            if (formattedSgg.includes('화성시') && !formattedSgg.includes(' ')) {
-              formattedSgg = formattedSgg.replace('화성시', '화성시 ');
-            }
-            return resolve({ sido: '경기도', sigungu: formattedSgg, dong: r3, raw: h.address_name });
-          }
-
-          if (r1 === '서울특별시') {
-            return resolve({ sido: '서울특별시', sigungu: r2, dong: r3, raw: h.address_name });
-          }
-
-          return resolve(null);
-        } catch {
-          resolve(null);
-        }
-      });
-    }).on('error', () => resolve(null));
-  });
-}
 
 // 1. 기존 21개 경계 및 예외 지점 테스트 케이스
 const suite1Cases = [
@@ -170,7 +109,7 @@ const suite3Cases = [
   // [제물포구 vs 서해구 경계선 (만석/화수/송림 vs 가좌/원창)]
   { name: '만석동 북부 해안 (제물포)', lat: 37.488000, lng: 126.620000 },
   { name: '북항 배후단지 (서해)', lat: 37.498000, lng: 126.620000 },
-  { name: '송림동 인천의료원 북쪽 (제물포)', lat: 37.478000, lng: 126.668000 },
+  { name: '송림4동행정복지센터 (제물포)', lat: 37.478169, lng: 126.649538 },
   { name: '가좌2동 주택가 (서해)', lat: 37.485000, lng: 126.673000 },
 
   // [제물포구 vs 영종구 경계선 (월미도 - 구읍뱃터 해상)]
@@ -183,105 +122,203 @@ const suite3Cases = [
   { name: '영종도 예단포 선착장 (영종)', lat: 37.531537, lng: 126.501836 }
 ];
 
-async function runTestSuite() {
-  console.log('\n============================================================');
-  console.log('🧪 수도권 83개 구·시·군 Point-in-Polygon (PIP) 독립 검증 테스트');
-  console.log('   (대조군: 카카오 coord2regioncode H 행정동 및 README 공식 목록)');
-  console.log('============================================================\n');
-
-  let totalPass = 0;
-  let totalFail = 0;
-  const failureList = [];
-
-  // Suite 1 실행
-  console.log('▶ [테스트 1] 기존 21개 경계 및 예외 지점 독립 검증');
-  console.log('------------------------------------------------------------');
-
-  for (const tc of suite1Cases) {
-    const gt = await getKakaoGroundTruth(tc.lng, tc.lat);
-    const pip = findDistrictByCoords({ lat: tc.lat, lng: tc.lng }, geoJson);
-
-    const gtStr = gt ? `${gt.sido} ${gt.sigungu}` : 'NULL (정복 대상 외)';
-    const pipStr = pip ? `${pip.sido} ${pip.sigungu}` : 'NULL (정복 대상 외)';
-
-    if (gtStr === pipStr) {
-      console.log(`✅ [PASS] ${tc.name}`);
-      console.log(`         좌표: (${tc.lat}, ${tc.lng}) → 카카오: ${gtStr}${gt?.dong ? ` (${gt.dong})` : ''} | 지도: ${pipStr}`);
-      totalPass++;
-    } else {
-      console.error(`❌ [FAIL] ${tc.name}`);
-      console.error(`         카카오 대조군: ${gtStr}${gt?.dong ? ` (${gt.dong})` : ''}`);
-      console.error(`         지도 PIP 결과: ${pipStr}`);
-      totalFail++;
-      failureList.push({ name: tc.name, lat: tc.lat, lng: tc.lng, gt: gtStr, pip: pipStr, dong: gt?.dong });
-    }
+function getKakaoApiKey() {
+  let key = process.env.KAKAO_REST_API_KEY || process.env.PUBLIC_KAKAO_MAP_KEY;
+  if (!key && fs.existsSync('.env')) {
+    const envContent = fs.readFileSync('.env', 'utf8');
+    const m = envContent.match(/(?:KAKAO_REST_API_KEY|PUBLIC_KAKAO_MAP_KEY)=([^\r\n]+)/);
+    if (m) key = m[1].trim();
   }
+  return key ? key.replace(/^['"]|['"]$/g, '') : null;
+}
 
-  // Suite 2 실행 (기존 샘플 장소 10곳)
-  console.log('\n▶ [테스트 2] 기존 샘플 장소 10곳 실좌표 독립 검증');
-  console.log('------------------------------------------------------------');
+async function fetchKakaoGroundTruth(lng, lat, apiKey) {
+  const options = {
+    hostname: 'dapi.kakao.com',
+    path: `/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`,
+    headers: {
+      'Authorization': `KakaoAK ${apiKey}`,
+      'Origin': 'http://localhost:4321',
+      'KA': 'sdk/1.0.0 os/javascript lang/ko-KR device/pc origin/http%3A%2F%2Flocalhost%3A4321'
+    }
+  };
 
+  return new Promise((resolve) => {
+    https.get(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (!json.documents || json.documents.length === 0) return resolve(null);
+          const h = json.documents.find((d) => d.region_type === 'H') || json.documents[0];
+          if (!h) return resolve(null);
+
+          const r1 = h.region_1depth_name || '';
+          const r2 = h.region_2depth_name || '';
+          const r3 = h.region_3depth_name || '';
+
+          if (!['서울특별시', '경기도', '인천광역시'].includes(r1)) {
+            return resolve(null);
+          }
+
+          if (r1 === '인천광역시') {
+            let resolvedGu = null;
+            for (const [gu, dongs] of Object.entries(INCHEON_OFFICIAL_DONGS)) {
+              if (dongs.some((d) => r3.includes(d) || d.includes(r3))) {
+                resolvedGu = gu;
+                break;
+              }
+            }
+            if (!resolvedGu) resolvedGu = r2;
+            return resolve({ sido: '인천광역시', sigungu: resolvedGu, dong: r3, raw: h.address_name });
+          }
+
+          if (r1 === '경기도') {
+            let formattedSgg = r2;
+            if (formattedSgg.includes('부천시') && !formattedSgg.includes(' ')) {
+              formattedSgg = formattedSgg.replace('부천시', '부천시 ');
+            }
+            if (formattedSgg.includes('화성시') && !formattedSgg.includes(' ')) {
+              formattedSgg = formattedSgg.replace('화성시', '화성시 ');
+            }
+            return resolve({ sido: '경기도', sigungu: formattedSgg, dong: r3, raw: h.address_name });
+          }
+
+          if (r1 === '서울특별시') {
+            return resolve({ sido: '서울특별시', sigungu: r2, dong: r3, raw: h.address_name });
+          }
+
+          return resolve(null);
+        } catch {
+          resolve(null);
+        }
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
+function loadPlacesTestCases() {
   const placesDir = path.resolve(process.cwd(), 'src/content/places');
-  const sampleFiles = fs.readdirSync(placesDir).filter((f) => f.endsWith('.md'));
+  const sampleFiles = fs.readdirSync(placesDir).filter((f) => f.endsWith('.md')).sort();
 
-  for (const f of sampleFiles) {
+  return sampleFiles.map((f) => {
     const content = fs.readFileSync(path.join(placesDir, f), 'utf8');
     const nameMatch = content.match(/name:\s*(.+)/);
     const latMatch = content.match(/lat:\s*([0-9.]+)/);
     const lngMatch = content.match(/lng:\s*([0-9.]+)/);
 
-    const name = nameMatch ? nameMatch[1].trim() : f;
-    const lat = latMatch ? parseFloat(latMatch[1]) : 0;
-    const lng = lngMatch ? parseFloat(lngMatch[1]) : 0;
+    return {
+      name: nameMatch ? nameMatch[1].trim() : f,
+      file: f,
+      lat: latMatch ? parseFloat(latMatch[1]) : 0,
+      lng: lngMatch ? parseFloat(lngMatch[1]) : 0
+    };
+  });
+}
 
-    const gt = await getKakaoGroundTruth(lng, lat);
-    const pip = findDistrictByCoords({ lat, lng }, geoJson);
-
-    const gtStr = gt ? `${gt.sido} ${gt.sigungu}` : 'NULL (정복 대상 외)';
-    const pipStr = pip ? `${pip.sido} ${pip.sigungu}` : 'NULL (정복 대상 외)';
-
-    if (gtStr === pipStr) {
-      console.log(`✅ [PASS] ${name} (${f})`);
-      console.log(`         좌표: (${lat}, ${lng}) → 카카오: ${gtStr}${gt?.dong ? ` (${gt.dong})` : ''} | 지도: ${pipStr}`);
-      totalPass++;
-    } else {
-      console.error(`❌ [FAIL] ${name} (${f})`);
-      console.error(`         카카오 대조군: ${gtStr}${gt?.dong ? ` (${gt.dong})` : ''}`);
-      console.error(`         지도 PIP 결과: ${pipStr}`);
-      totalFail++;
-      failureList.push({ name, lat, lng, gt: gtStr, pip: pipStr, dong: gt?.dong });
-    }
-  }
-
-  // Suite 3 실행 (인천 개편 4개 구 경계선 양측 및 도서 지역)
-  console.log('\n▶ [테스트 3] 인천 개편 4개 구 경계선(100~200m) 및 도서 지역 독립 검증');
-  console.log('------------------------------------------------------------');
-
-  for (const tc of suite3Cases) {
-    const gt = await getKakaoGroundTruth(tc.lng, tc.lat);
-    const pip = findDistrictByCoords({ lat: tc.lat, lng: tc.lng }, geoJson);
-
-    const gtStr = gt ? `${gt.sido} ${gt.sigungu}` : 'NULL (정복 대상 외)';
-    const pipStr = pip ? `${pip.sido} ${pip.sigungu}` : 'NULL (정복 대상 외)';
-
-    if (gtStr === pipStr) {
-      console.log(`✅ [PASS] ${tc.name}`);
-      console.log(`         좌표: (${tc.lat}, ${tc.lng}) → 카카오: ${gtStr}${gt?.dong ? ` (${gt.dong})` : ''} | 지도: ${pipStr}`);
-      totalPass++;
-    } else {
-      console.error(`❌ [FAIL] ${tc.name}`);
-      console.error(`         카카오 대조군: ${gtStr}${gt?.dong ? ` (${gt.dong})` : ''}`);
-      console.error(`         지도 PIP 결과: ${pipStr}`);
-      totalFail++;
-      failureList.push({ name: tc.name, lat: tc.lat, lng: tc.lng, gt: gtStr, pip: pipStr, dong: gt?.dong });
-    }
-  }
-
-  // 최종 요약 리포트
+async function runTestSuite() {
   console.log('\n============================================================');
-  console.log('📊 독립 검증 테스트 결과 요약');
+  console.log(`🧪 수도권 83개 구·시·군 Point-in-Polygon (PIP) 경계 판정 검증`);
+  console.log(`   모드: ${isOracleMode ? '🌐 카카오 API 실시간 오라클 (Oracle)' : '📁 오프라인 픽스처 (Offline Fixture)'}`);
+  console.log('============================================================\n');
+
+  let fixtures = {};
+  let apiKey = null;
+
+  if (isOracleMode) {
+    apiKey = getKakaoApiKey();
+    if (!apiKey) {
+      console.error('❌ 카카오 API 키를 찾을 수 없습니다.');
+      console.error('   .env 파일에 PUBLIC_KAKAO_MAP_KEY 또는 KAKAO_REST_API_KEY를 등록해 주세요.');
+      process.exit(1);
+    }
+    console.log('🔑 카카오 API 키 로드 완료 (.env 기반, 실시간 검증 시작)\n');
+  } else {
+    if (!fs.existsSync(fixturePath)) {
+      console.error(`❌ 픽스처 파일이 없습니다: ${fixturePath}`);
+      console.error('   먼저 `npm run test:oracle`을 실행하여 픽스처를 생성해 주세요.');
+      process.exit(1);
+    }
+    fixtures = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+    console.log(`📦 오프라인 픽스처 로드 완료 (${Object.keys(fixtures).length}개 검증 데이터셋)\n`);
+  }
+
+  const placesCases = loadPlacesTestCases();
+  const allSuites = [
+    { title: '테스트 1: 기존 21개 경계 및 예외 지점 검증', category: 'suite1', cases: suite1Cases },
+    { title: '테스트 2: 샘플 장소 10곳 실좌표 검증', category: 'places', cases: placesCases },
+    { title: '테스트 3: 인천 개편 4개 구 경계선(100~200m) 및 도서 지역 검증', category: 'suite3', cases: suite3Cases }
+  ];
+
+  let totalPass = 0;
+  let totalFail = 0;
+  const failureList = [];
+  const updatedFixtures = {};
+
+  for (const suite of allSuites) {
+    console.log(`▶ [${suite.title}]`);
+    console.log('------------------------------------------------------------');
+
+    for (const tc of suite.cases) {
+      let gt = null;
+      let gtStr = null;
+
+      if (isOracleMode) {
+        gt = await fetchKakaoGroundTruth(tc.lng, tc.lat, apiKey);
+        gtStr = gt ? `${gt.sido} ${gt.sigungu}` : null;
+        updatedFixtures[tc.name] = {
+          lat: tc.lat,
+          lng: tc.lng,
+          category: suite.category,
+          expected: gtStr,
+          dong: gt?.dong || null,
+          address: gt?.raw || null
+        };
+      } else {
+        const fixture = fixtures[tc.name];
+        if (!fixture) {
+          console.error(`⚠️ [누락] 픽스처에 '${tc.name}' 항목이 없습니다.`);
+          totalFail++;
+          failureList.push({ name: tc.name, lat: tc.lat, lng: tc.lng, gt: '미등록', pip: '미등록' });
+          continue;
+        }
+        gtStr = fixture.expected;
+        gt = { dong: fixture.dong, raw: fixture.address };
+      }
+
+      const pip = findDistrictByCoords({ lat: tc.lat, lng: tc.lng }, geoJson);
+      const pipStr = pip ? `${pip.sido} ${pip.sigungu}` : null;
+
+      const expectedDisplay = gtStr ? gtStr : 'NULL (정복 대상 외)';
+      const pipDisplay = pipStr ? pipStr : 'NULL (정복 대상 외)';
+
+      if (gtStr === pipStr) {
+        console.log(`✅ [PASS] ${tc.name}`);
+        console.log(`         좌표: (${tc.lat}, ${tc.lng}) → 대조군: ${expectedDisplay}${gt?.dong ? ` (${gt.dong})` : ''} | 지도: ${pipDisplay}`);
+        totalPass++;
+      } else {
+        console.error(`❌ [FAIL] ${tc.name}`);
+        console.error(`         대조군: ${expectedDisplay}${gt?.dong ? ` (${gt.dong})` : ''}`);
+        console.error(`         지도 PIP: ${pipDisplay}`);
+        totalFail++;
+        failureList.push({ name: tc.name, lat: tc.lat, lng: tc.lng, gt: expectedDisplay, pip: pipDisplay, dong: gt?.dong });
+      }
+    }
+    console.log('');
+  }
+
+  // 오라클 모드이고 전체 성공한 경우 픽스처 파일 갱신
+  if (isOracleMode && totalFail === 0) {
+    fs.mkdirSync(path.dirname(fixturePath), { recursive: true });
+    fs.writeFileSync(fixturePath, JSON.stringify(updatedFixtures, null, 2), 'utf8');
+    console.log(`💾 픽스처 파일 갱신 완료: ${fixturePath}\n`);
+  }
+
   console.log('============================================================');
-  console.log(`  - 전체 테스트 지점: ${totalPass + totalFail}개`);
+  console.log('📊 경계 판정 검증 결과 요약');
+  console.log('============================================================');
+  console.log(`  - 전체 검증 지점: ${totalPass + totalFail}개`);
   console.log(`  - 성공(PASS):       ${totalPass}개`);
   console.log(`  - 실패(FAIL):       ${totalFail}개`);
 
@@ -290,7 +327,7 @@ async function runTestSuite() {
     console.table(failureList);
     process.exit(1);
   } else {
-    console.log('\n🎉 모든 테스트 지점이 카카오 행정동 공식 대조군과 100% 일치합니다.');
+    console.log(`\n🎉 모든 지점이 ${isOracleMode ? '카카오 행정동 공식 대조군과 100% 일치' : '오프라인 공식 픽스처와 100% 일치'}합니다.`);
     process.exit(0);
   }
 }

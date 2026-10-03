@@ -4,11 +4,10 @@ import type { ConquestStats } from '@/lib/geo/conquest-calc';
 import { CircleAlert, RefreshCw, RotateCcw } from '@lucide/astro';
 
 interface Props {
-  geoJson: any;
   stats: ConquestStats;
 }
 
-const { geoJson, stats } = Astro.props;
+const { stats } = Astro.props;
 const baseUrlPrefix = baseUrl('').replace(/\/$/, '');
 
 // 클라이언트에 전달할 정복 구역 맵 (key: sigungu)
@@ -79,7 +78,6 @@ stats.districtsList.forEach((d) => {
     <div
       id="kakao-conquest-map"
       class="w-full h-full"
-      data-geojson={JSON.stringify(geoJson)}
       data-conquered={JSON.stringify(conqueredLookup)}
       data-base-url={baseUrlPrefix}
     ></div>
@@ -156,15 +154,20 @@ stats.districtsList.forEach((d) => {
       loadingEl?.classList.remove('hidden');
       errorEl?.classList.add('hidden');
 
-      const rawGeo = container.dataset.geojson;
       const rawConquered = container.dataset.conquered;
       baseUrlPrefix = container.dataset.baseUrl || '';
 
-      const geoData = rawGeo ? JSON.parse(rawGeo) : { features: [] };
-      allFeatures = geoData.features || [];
-
       const conqueredObj = rawConquered ? JSON.parse(rawConquered) : {};
       conqueredMap = new Map(Object.entries(conqueredObj));
+
+      // 화면 표시용 경량 GeoJSON 비동기 로드 (gzip ~56.8KB)
+      const displayGeoUrl = `${baseUrlPrefix}/geo/metropolitan-83-display.geojson`;
+      const res = await fetch(displayGeoUrl);
+      if (!res.ok) {
+        throw new Error(`지도 경계 데이터를 불러오지 못했습니다 (${res.status})`);
+      }
+      const geoData = await res.json();
+      allFeatures = geoData.features || [];
 
       if (adapter) {
         adapter.destroy();

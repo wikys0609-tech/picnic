@@ -1284,8 +1284,7 @@ const initialWalks = allWalks.map((w) => ({
     }
     return null;
   }
-  // 백그라운드 프리로드
-  getConquestGeoJson();
+  // 정밀 GeoJSON은 장소 선택 또는 지도 클릭 시점에만 지연 로딩 (lazy loading)
 
   async function applyPointInPolygonRegion(lat: number, lng: number, kakaoRegion?: any) {
     const geo = await getConquestGeoJson();

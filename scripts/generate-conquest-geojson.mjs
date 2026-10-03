@@ -3,27 +3,60 @@
 /**
  * 수도권 83개 구·시·군 정복 지도 GeoJSON 생성 파이프라인
  * 
- * 원본 출처: 대한민국 통계청/행안부 행정동 경계 (vuski/admdongkor ver20260701)
- * 반영 사항:
- * - 2026-07-01 인천광역시 공식 행정구역 개편 (제물포구 18개동, 영종구 6개동, 검단구 8개동, 서해구 16개동 등 11개 구·군)
- * - 작약도(물치도): 영종동에 묶여있던 도서 폴리곤을 법정 관할인 제물포구 만석동(산3)으로 정상 편입
- * - 세어도: 영종동에 묶여있던 도서 폴리곤을 법정 관할인 서해구 신현원창동으로 정상 편입
- * - 아라뱃길 이북 시천동/백석동: 검단구 당하동으로 2026 공식 경계 정합
- * - 경기도 일반구 세분화 (부천시 3개구, 화성시 4개구, 수원·성남·안양·안산·고양·용인 일반구 등 47개 시·구·군)
- * - 서울특별시 25개 자치구
- * - 총 83개 구역 디졸브(Dissolve) 및 경계 최적화(Simplify 0.00035)
+ * 원본 출처: 대한민국 통계청 / 행정안전부 2026-07-01 행정구역 개편 공식 기준 행정동 경계
+ * 저장소: https://github.com/vuski/admdongkor (ver20260701, commit 7360288)
+ * 파일: ver20260701/HangJeongDong_ver20260701.geojson
+ * 
+ * 주요 기능:
+ * 1. 대표 좌표 기반 견고한 도서 다각형 탐색 및 분리 귀속 (인덱스 하드코딩 제거)
+ *    - 작약도(물치도): 제물포구 만석동(산3)으로 귀속
+ *    - 세어도(본섬/소세어도): 서해구 신현원창동으로 귀속
+ * 2. 아라뱃길 이북 시천동·백석동: 검단구 당하동으로 2026 공식 경계 정합
+ * 3. 이중 산출물 생성:
+ *    - public/geo/metropolitan-83.geojson: 정밀 판정용 (tolerance 0.0001° ≈ 10m)
+ *    - public/geo/metropolitan-83-display.geojson: 화면 표시용 초경량 (tolerance 0.0007°, 5자리 좌표 절삭, gzip ~56KB)
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import https from 'node:https';
+import zlib from 'node:zlib';
 import * as turf from '@turf/turf';
 
 const CACHE_DIR = path.resolve(process.cwd(), '.geo-cache');
 const OUTPUT_FILE = path.resolve(process.cwd(), 'public/geo/metropolitan-83.geojson');
+const DISPLAY_OUTPUT_FILE = path.resolve(process.cwd(), 'public/geo/metropolitan-83-display.geojson');
 
-const GEOJSON_2026_URL = 'https://raw.githubusercontent.com/vuski/admdongkor/master/ver20260701/HangJeongDong_ver20260701.geojson';
+const GEOJSON_2026_URL = 'https://raw.githubusercontent.com/vuski/admdongkor/7360288277dfd12d74e54b959c59bdd66f852e3a/ver20260701/HangJeongDong_ver20260701.geojson';
 const CACHED_FILE = path.join(CACHE_DIR, 'HangJeongDong_ver20260701.geojson');
+
+// 대표 좌표 기반 도서 분리 정의 (다각형 순번/인덱스 의존 탈피)
+const ISLAND_EXTRACTIONS = [
+  {
+    name: '작약도 (물치도)',
+    representativePoint: [126.588694, 37.497531], // [lng, lat]
+    sourceAdmNm: '인천광역시 영종구 영종동',
+    targetSigungu: '제물포구',
+    targetSido: '인천광역시',
+    targetAdmNm: '인천광역시 제물포구 만석동(작약도)'
+  },
+  {
+    name: '세어도 (본섬)',
+    representativePoint: [126.5787, 37.5460], // [lng, lat]
+    sourceAdmNm: '인천광역시 영종구 영종동',
+    targetSigungu: '서해구',
+    targetSido: '인천광역시',
+    targetAdmNm: '인천광역시 서해구 신현원창동(세어도1)'
+  },
+  {
+    name: '소세어도',
+    representativePoint: [126.5876, 37.5480], // [lng, lat]
+    sourceAdmNm: '인천광역시 영종구 영종동',
+    targetSigungu: '서해구',
+    targetSido: '인천광역시',
+    targetAdmNm: '인천광역시 서해구 신현원창동(세어도2)'
+  }
+];
 
 function formatSggName(sgg) {
   if (sgg.includes('시') && sgg.endsWith('구')) {
@@ -33,9 +66,16 @@ function formatSggName(sgg) {
   return sgg;
 }
 
+function truncateCoords(coords) {
+  if (typeof coords[0] === 'number') {
+    return [Number(coords[0].toFixed(5)), Number(coords[1].toFixed(5))];
+  }
+  return coords.map(truncateCoords);
+}
+
 function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
-    console.log(`⬇️ 2026-07-01 행정동 데이터 다운로드 중: ${url}`);
+    console.log(`⬇️ 2026-07-01 행정동 공식 데이터 다운로드 중: ${url}`);
     const file = fs.createWriteStream(dest);
     https.get(url, (res) => {
       if (res.statusCode !== 200) {
@@ -54,7 +94,7 @@ function downloadFile(url, dest) {
 
 async function main() {
   console.log('\n==========================================');
-  console.log('🗺️  수도권 83개 구·시·군 GeoJSON 빌더 (2026-07-01 기준)');
+  console.log('🗺️  수도권 83개 구·시·군 GeoJSON 빌더 (2026-07-01 공식 기준)');
   console.log('==========================================\n');
 
   if (!fs.existsSync(CACHE_DIR)) {
@@ -81,28 +121,55 @@ async function main() {
     const sido = f.properties.sidonm;
     const sgg = formatSggName(f.properties.sggnm);
 
-    // 인천 영종동 도서 분리 처리 (작약도 -> 제물포구, 세어도 -> 서해구)
+    // 대표 좌표 기반 견고한 도서 다각형 분리 처리 (인덱스 하드코딩 제거)
     if (sido === '인천광역시' && f.properties.adm_nm === '인천광역시 영종구 영종동') {
-      const coords = f.geometry.coordinates;
-      // Poly 0: 작약도 (물치도) -> 인천광역시 동구 만석동 산3 (제물포구 만석동)
-      const poly0 = coords[0];
-      // Poly 6 & 7: 세어도/소세어도 -> 인천광역시 서구 원창동 (서해구 신현원창동)
-      const poly6 = coords[6];
-      const poly7 = coords[7];
-      const yjOther = coords.filter((_, idx) => ![0, 6, 7].includes(idx));
+      let polyCoords = [...f.geometry.coordinates];
 
-      const jKey = '제물포구';
-      if (!districtGroups.has(jKey)) districtGroups.set(jKey, { sido: '인천광역시', sigungu: jKey, features: [] });
-      districtGroups.get(jKey).features.push(turf.polygon(poly0, { sido: '인천광역시', sigungu: jKey, adm_nm: '인천광역시 제물포구 만석동(작약도)' }));
+      for (const island of ISLAND_EXTRACTIONS) {
+        const testPoint = turf.point(island.representativePoint);
+        const matchIndex = polyCoords.findIndex((poly) => {
+          try {
+            return turf.booleanPointInPolygon(testPoint, turf.polygon(poly));
+          } catch {
+            return false;
+          }
+        });
 
-      const sKey = '서해구';
-      if (!districtGroups.has(sKey)) districtGroups.set(sKey, { sido: '인천광역시', sigungu: sKey, features: [] });
-      districtGroups.get(sKey).features.push(turf.polygon(poly6, { sido: '인천광역시', sigungu: sKey, adm_nm: '인천광역시 서해구 신현원창동(세어도1)' }));
-      districtGroups.get(sKey).features.push(turf.polygon(poly7, { sido: '인천광역시', sigungu: sKey, adm_nm: '인천광역시 서해구 신현원창동(세어도2)' }));
+        if (matchIndex === -1) {
+          throw new Error(
+            `❌ 필수 도서 다각형 탐색 실패: '${island.name}' 대표 좌표 [${island.representativePoint}]를 포함하는 다각형이 '${island.sourceAdmNm}' 피처에 존재하지 않습니다.`
+          );
+        }
 
+        const [extracted] = polyCoords.splice(matchIndex, 1);
+        const targetKey = island.targetSigungu;
+
+        if (!districtGroups.has(targetKey)) {
+          districtGroups.set(targetKey, { sido: island.targetSido, sigungu: targetKey, features: [] });
+        }
+        districtGroups.get(targetKey).features.push(
+          turf.polygon(extracted, {
+            sido: island.targetSido,
+            sigungu: targetKey,
+            adm_nm: island.targetAdmNm
+          })
+        );
+
+        console.log(`  🏝️  [도서 분리 완료] '${island.name}' -> ${island.targetSigungu} (${island.representativePoint})`);
+      }
+
+      // 분리 후 남은 폴리곤들을 원래 영종구로 등록
       const yKey = '영종구';
-      if (!districtGroups.has(yKey)) districtGroups.set(yKey, { sido: '인천광역시', sigungu: yKey, features: [] });
-      districtGroups.get(yKey).features.push(turf.multiPolygon(yjOther, { sido: '인천광역시', sigungu: yKey, adm_nm: '인천광역시 영종구 영종동' }));
+      if (!districtGroups.has(yKey)) {
+        districtGroups.set(yKey, { sido: '인천광역시', sigungu: yKey, features: [] });
+      }
+      districtGroups.get(yKey).features.push(
+        turf.multiPolygon(polyCoords, {
+          sido: '인천광역시',
+          sigungu: yKey,
+          adm_nm: '인천광역시 영종구 영종동'
+        })
+      );
       continue;
     }
 
@@ -113,16 +180,18 @@ async function main() {
         features: []
       });
     }
-    districtGroups.get(sgg).features.push(turf.feature(f.geometry, { sido, sigungu: sgg, adm_nm: f.properties.adm_nm }));
+    districtGroups.get(sgg).features.push(
+      turf.feature(f.geometry, { sido, sigungu: sgg, adm_nm: f.properties.adm_nm })
+    );
   }
 
-  console.log(`✓ 총 ${districtGroups.size}개 구역 그룹 매핑 완료.\n`);
+  console.log(`\n✓ 총 ${districtGroups.size}개 구역 그룹 매핑 완료.\n`);
 
   // 3. 각 구역별 폴리곤 통합(Dissolve/Union) 및 단순화(Simplify)
-  const finalFeatures = [];
+  const precisionFeatures = [];
 
   for (const [sigungu, group] of districtGroups.entries()) {
-    process.stdout.write(`📐 [${group.sido}] ${sigungu} (${group.features.length}개 단위 경계 결합 중)... `);
+    process.stdout.write(`📐 [${group.sido}] ${sigungu} (${group.features.length}개 단위 결합 중)... `);
 
     let unified = null;
     try {
@@ -145,7 +214,7 @@ async function main() {
       continue;
     }
 
-    // 경계 단순화 (0.0001도 ≈ 10m 정밀도, 경계선 100m 검증 보장 및 초고속 렌더링)
+    // 1) 정밀 판정용 단순화 (0.0001° ≈ 10m 정밀도)
     let simplified = unified;
     try {
       simplified = turf.simplify(unified, { tolerance: 0.0001, highQuality: true });
@@ -161,7 +230,6 @@ async function main() {
       ];
     } catch {}
 
-    // 부모 시 (일반구인 경우)
     let parentCity = null;
     if (sigungu.includes('시 ') && group.sido === '경기도') {
       parentCity = sigungu.split(' ')[0];
@@ -169,7 +237,7 @@ async function main() {
 
     const featureId = `${group.sido}_${sigungu}`.replace(/[\s·]/g, '_');
 
-    finalFeatures.push({
+    precisionFeatures.push({
       type: 'Feature',
       id: featureId,
       properties: {
@@ -184,30 +252,41 @@ async function main() {
       geometry: simplified.geometry
     });
 
-    console.log('✓ 완료');
+    console.log('✓');
   }
 
-  // 4. 시도 및 구군명 기준 가나다 정렬
-  finalFeatures.sort((a, b) => {
-    if (a.properties.sido !== b.properties.sido) {
-      const order = { '서울특별시': 1, '경기도': 2, '인천광역시': 3 };
-      return (order[a.properties.sido] || 9) - (order[b.properties.sido] || 9);
-    }
-    return a.properties.name.localeCompare(b.properties.name, 'ko');
-  });
+  // 시도 및 구군명 기준 가나다 정렬
+  const sortFeatures = (feats) => {
+    feats.sort((a, b) => {
+      if (a.properties.sido !== b.properties.sido) {
+        const order = { '서울특별시': 1, '경기도': 2, '인천광역시': 3 };
+        return (order[a.properties.sido] || 9) - (order[b.properties.sido] || 9);
+      }
+      return a.properties.name.localeCompare(b.properties.name, 'ko');
+    });
+  };
 
-  const finalGeoJSON = {
+  sortFeatures(precisionFeatures);
+
+  const baseMetadata = {
+    generatedAt: new Date().toISOString(),
+    source: 'vuski/admdongkor ver20260701 (commit 7360288277dfd12d74e54b959c59bdd66f852e3a)',
+    title: '수도권 83개 구·시·군 행정구역 경계',
+    totalFeatures: precisionFeatures.length,
+    seoulCount: precisionFeatures.filter((f) => f.properties.sido === '서울특별시').length,
+    gyeonggiCount: precisionFeatures.filter((f) => f.properties.sido === '경기도').length,
+    incheonCount: precisionFeatures.filter((f) => f.properties.sido === '인천광역시').length
+  };
+
+  // 1) 정밀 판정용 GeoJSON 파일 저장 (metropolitan-83.geojson)
+  const precisionGeoJSON = {
     type: 'FeatureCollection',
     metadata: {
-      generatedAt: new Date().toISOString(),
-      source: 'vuski/admdongkor ver20260701 (통계청/행정안전부 2026-07-01 행정구역 개편 공식 반영)',
-      title: '수도권 83개 구·시·군 행정구역 경계',
-      totalFeatures: finalFeatures.length,
-      seoulCount: finalFeatures.filter((f) => f.properties.sido === '서울특별시').length,
-      gyeonggiCount: finalFeatures.filter((f) => f.properties.sido === '경기도').length,
-      incheonCount: finalFeatures.filter((f) => f.properties.sido === '인천광역시').length
+      ...baseMetadata,
+      usage: 'precision-point-in-polygon',
+      tolerance: 0.0001
     },
-    features: finalFeatures
+    features: precisionFeatures
   };
 
   const outputDir = path.dirname(OUTPUT_FILE);
@@ -215,19 +294,54 @@ async function main() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  fs.writeFileSync(OUTPUT_FILE, JSON.stringify(finalGeoJSON), 'utf8');
+  const precisionStr = JSON.stringify(precisionGeoJSON);
+  fs.writeFileSync(OUTPUT_FILE, precisionStr, 'utf8');
+  const precisionGz = zlib.gzipSync(precisionStr);
 
-  const stats = fs.statSync(OUTPUT_FILE);
-  const sizeKb = (stats.size / 1024).toFixed(1);
+  // 2) 화면 표시용 초경량 GeoJSON 생성 (metropolitan-83-display.geojson)
+  // tolerance 0.0007° + 좌표 5자리(1.1m) 절삭
+  const displayFeatures = precisionFeatures.map((f) => {
+    let simp = f;
+    try {
+      simp = turf.simplify(f, { tolerance: 0.0007, highQuality: true });
+    } catch {}
+    return {
+      type: 'Feature',
+      id: f.id,
+      properties: f.properties,
+      geometry: {
+        type: simp.geometry.type,
+        coordinates: truncateCoords(simp.geometry.coordinates)
+      }
+    };
+  });
 
-  console.log('\n==========================================');
-  console.log(`🎉 83개 구역 GeoJSON 생성 완료: ${OUTPUT_FILE}`);
-  console.log(`   - 파일 크기: ${sizeKb} KB (경량화 최적화 완료)`);
-  console.log(`   - 전체 구역 수: ${finalFeatures.length}개`);
-  console.log(`     * 서울특별시: ${finalGeoJSON.metadata.seoulCount}개`);
-  console.log(`     * 경기도:     ${finalGeoJSON.metadata.gyeonggiCount}개`);
-  console.log(`     * 인천광역시: ${finalGeoJSON.metadata.incheonCount}개`);
-  console.log('==========================================\n');
+  const displayGeoJSON = {
+    type: 'FeatureCollection',
+    metadata: {
+      ...baseMetadata,
+      usage: 'screen-display-optimized',
+      tolerance: 0.0007,
+      coordinatePrecision: '5 decimals (~1.1m)'
+    },
+    features: displayFeatures
+  };
+
+  const displayStr = JSON.stringify(displayGeoJSON);
+  fs.writeFileSync(DISPLAY_OUTPUT_FILE, displayStr, 'utf8');
+  const displayGz = zlib.gzipSync(displayStr);
+
+  console.log('\n============================================================');
+  console.log('🎉 수도권 83개 구역 이중 GeoJSON 생성 완료');
+  console.log('============================================================');
+  console.log(`1. [정밀 판정용] ${OUTPUT_FILE}`);
+  console.log(`   - 파일 크기: ${(precisionStr.length / 1024).toFixed(1)} KB (gzip: ${(precisionGz.length / 1024).toFixed(1)} KB)`);
+  console.log(`   - 정밀도: tolerance 0.0001° (약 10m 이내, PIP 판정 전용)`);
+  console.log(`2. [화면 표시용] ${DISPLAY_OUTPUT_FILE}`);
+  console.log(`   - 파일 크기: ${(displayStr.length / 1024).toFixed(1)} KB (gzip: ${(displayGz.length / 1024).toFixed(1)} KB)`);
+  console.log(`   - 최적화: tolerance 0.0007°, 좌표 5자리 절삭 (~1.1m, 정복 지도 렌더링 전용)`);
+  console.log(`   - 전송 절감: gzip 기준 ${(precisionGz.length / 1024).toFixed(1)} KB -> ${(displayGz.length / 1024).toFixed(1)} KB (${((1 - displayGz.length / precisionGz.length) * 100).toFixed(1)}% 용량 절감)`);
+  console.log('============================================================\n');
 }
 
 main().catch((err) => {
