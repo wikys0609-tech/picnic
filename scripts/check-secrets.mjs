@@ -6,31 +6,36 @@
  * - git diff --cached를 검사하여 민감 파일(.env, 서비스 계정 JSON, 개인 키)이나
  *   비밀 API 키(Google Service Account, GitHub Token, Kakao REST Key 등)가
  *   커밋되는 것을 사전에 강제 차단합니다.
- * - 단, 공개 키인 PUBLIC_KAKAO_MAP_KEY나 문서(README.md 등), 템플릿(.env.example),
- *   테스트 픽스처는 오탐(False Positive)으로 처리되지 않도록 허용합니다.
+ * - README.md, docs/를 포함한 모든 문서 파일도 비밀 값 검사 대상에 포함됩니다.
+ * - 공개 클라이언트 키인 PUBLIC_KAKAO_MAP_KEY(a7ec74f23964ef752a90e8bef05c19ec)와
+ *   카카오 응답 픽스처(tests/fixtures/)만 오탐 방지용 예외로 허용됩니다.
  */
 
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 
-// 1. 차단 대상 파일명 / 확장자 패턴 (정규식)
+// 공개 JavaScript 키 (클라이언트 브라우저 노출 및 도메인 제한 적용 키)
+const PUBLIC_KAKAO_JS_KEY = 'a7ec74f23964ef752a90e8bef05c19ec';
+
+// 1. 커밋 절대 금지 파일명 / 확장자 패턴 (파일명 기준)
 const BLOCKED_FILE_PATTERNS = [
-  /^\.env(?:\.local|\.production|\.development)?$/i, // .env 파일 (단 .env.example 제외)
+  /^\.env(?:\.local|\.production|\.development)?$/i, // .env 파일 (단, .env.example 제외)
   /service[-_]?account.*\.json$/i,                  // 구글 서비스 계정 키 파일
   /\.(?:pem|key|p12|pfx)$/i,                         // 인증서 및 비공개 키 파일
   /^\.photo-cache\.json$/i                           // 로컬 사진 동기화 내부 캐시
 ];
 
-// 예외 허용 경로 (공개용 템플릿 및 픽스처)
-const ALLOWED_PATHS = [
-  '.env.example',
-  'README.md',
-  'docs/',
-  'tests/fixtures/',
-  'public/photos-debug.json'
+// 파일명 차단 검사에서 제외할 파일 (템플릿용)
+const FILE_BLOCK_EXEMPTIONS = [
+  '.env.example'
 ];
 
-// 2. 검출할 시크릿 정규식 패턴
+// diff 내용 검사에서 완전히 제외할 경로 (카카오 행정동 응답 픽스처 전용)
+const DIFF_EXEMPT_PATHS = [
+  'tests/fixtures/'
+];
+
+// 2. 검출할 시크릿 정규식 패턴 (README.md 및 docs/를 포함한 전 파일 대상)
 const SECRET_RULES = [
   {
     name: 'Google Service Account Private Key',
@@ -54,22 +59,32 @@ const SECRET_RULES = [
   },
   {
     name: 'Kakao REST API Key Hardcoded Assignment',
-    regex: /KAKAO_REST_API_KEY\s*[:=]\s*['"][a-f0-9]{32}['"]/i
+    regex: /KAKAO_REST_API_KEY\s*[:=]\s*['"]?([a-f0-9]{32})['"]?/i,
+    validator: (match) => {
+      // 32자리 16진수 실제 키인 경우에만 차단 (placeholder는 허용)
+      const key = match[1] || '';
+      return key.length === 32;
+    }
   },
   {
     name: 'KakaoAK Authorization Header with Secret Key',
     regex: /KakaoAK\s+['"]?([a-f0-9]{32})['"]?/i,
-    // 공개 JavaScript 키(도메인 제한)는 오탐 방지 허용
     validator: (match) => {
+      // 공개 JavaScript 키는 허용, 그 외의 32자리 비밀 키는 차단
       const key = match[1] || '';
-      return key.toLowerCase() !== 'a7ec74f23964ef752a90e8bef05c19ec';
+      return key.toLowerCase() !== PUBLIC_KAKAO_JS_KEY.toLowerCase();
     }
   }
 ];
 
-function isPathAllowed(filepath) {
+function isDiffExempt(filepath) {
   const norm = filepath.replace(/\\/g, '/');
-  return ALLOWED_PATHS.some(allowed => norm === allowed || norm.startsWith(allowed));
+  return DIFF_EXEMPT_PATHS.some(allowed => norm === allowed || norm.startsWith(allowed));
+}
+
+function isFileBlockExempt(filepath) {
+  const norm = filepath.replace(/\\/g, '/');
+  return FILE_BLOCK_EXEMPTIONS.some(allowed => norm === allowed || norm.endsWith(allowed));
 }
 
 function checkStagedFiles() {
@@ -89,7 +104,7 @@ function checkStagedFiles() {
 
   // [검사 1] 파일명 기반 민감 파일 커밋 차단
   for (const file of stagedFiles) {
-    if (isPathAllowed(file)) continue;
+    if (isFileBlockExempt(file)) continue;
 
     const basename = path.basename(file);
     for (const pattern of BLOCKED_FILE_PATTERNS) {
@@ -103,9 +118,9 @@ function checkStagedFiles() {
     }
   }
 
-  // [검사 2] git diff 내용 기반 비밀 값 정규식 매칭
+  // [검사 2] git diff 내용 기반 비밀 값 정규식 매칭 (README.md, docs/ 포함 전수 검사)
   for (const file of stagedFiles) {
-    if (isPathAllowed(file)) continue;
+    if (isDiffExempt(file)) continue;
 
     let fileDiff = '';
     try {
@@ -131,16 +146,11 @@ function checkStagedFiles() {
       lineNum++;
       const addedContent = line.slice(1);
 
-      // PUBLIC_KAKAO_MAP_KEY 설정이나 주석 등은 허용
-      if (addedContent.includes('PUBLIC_KAKAO_MAP_KEY') && !addedContent.includes('KAKAO_REST_API_KEY')) {
-        continue;
-      }
-
       for (const rule of SECRET_RULES) {
         const m = addedContent.match(rule.regex);
         if (m) {
-          if (rule.validator && !rule.validator(m)) {
-            continue; // 검증 통과 (오탐 허용)
+          if (rule.validator && !rule.validator(m, addedContent)) {
+            continue; // 허용된 공개 키 또는 플레이스홀더
           }
 
           violations.push({
@@ -169,7 +179,7 @@ function checkStagedFiles() {
     console.error('========================================================================');
     console.error('💡 조치 방법:');
     console.error('  1. 민감 파일(.env 등)을 .gitignore에 등록하고 `git reset HEAD <파일>`로 스테이징을 해제하세요.');
-    console.error('  2. 소스 코드에 하드코딩된 API 키를 제거하고 .env 환경변수를 사용하세요.\n');
+    console.error('  2. 소스 코드나 문서에 하드코딩된 API 키/토큰을 제거하세요.\n');
     process.exit(1);
   }
 }

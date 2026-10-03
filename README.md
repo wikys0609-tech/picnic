@@ -185,7 +185,7 @@ npm run build
 2. **GitHub Actions Gitleaks 원격 검사 (2차 감시)**:
    - [`.github/workflows/secret-scan.yml`](.github/workflows/secret-scan.yml)이 `main` 브랜치 push(작성 도구의 GitHub API 직접 커밋 포함) 및 PR 시마다 백그라운드에서 실행됩니다.
    - **배포 독립성**: 시크릿 검사 워크플로는 배포 워크플로(`deploy.yml`)와 독립적으로 병렬 실행되므로, 배포 속도를 지연시키거나 정상적인 글 작성을 방해하지 않고 보안 알림만 담당합니다.
-   - **오탐 방지 설정 ([`.gitleaks.toml`](.gitleaks.toml))**: 웹사이트 클라이언트에 공개되는 `PUBLIC_KAKAO_MAP_KEY`, 문서(README), 템플릿(`.env.example`), 빌드 산출물(`dist/`), 테스트 픽스처는 정상 허용 처리됩니다.
+   - **정밀 예외 및 문서 전수 검사 ([`.gitleaks.toml`](.gitleaks.toml))**: `README.md`와 `docs/`를 포함한 모든 문서 파일도 비밀 값 검사 대상에 포함되며, 오직 웹사이트 클라이언트에 공개되는 `PUBLIC_KAKAO_MAP_KEY` 값 및 순수 행정동 응답 데이터인 테스트 픽스처(`tests/fixtures/`)만 오탐 방지용으로 정밀 예외 처리됩니다.
 
 ---
 

@@ -1,14 +1,9 @@
 title = "Picnic Secret Detection Configuration"
 
 [allowlist]
-description = "Global allowlist for picnic public map keys, documentation, and build outputs"
+description = "Allowlist for public map key and test fixtures (docs/ and README.md are strictly scanned)"
 paths = [
-  '''(?i)README\.md''',
-  '''(?i)docs/.*''',
-  '''(?i)\.env\.example''',
-  '''(?i)dist/.*''',
-  '''(?i)tests/fixtures/.*''',
-  '''(?i)public/photos-debug\.json'''
+  '''(?i)tests/fixtures/.*'''
 ]
 regexes = [
   '''PUBLIC_KAKAO_MAP_KEY''',
