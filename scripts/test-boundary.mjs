@@ -122,24 +122,22 @@ const suite3Cases = [
   { name: '영종도 예단포 선착장 (영종)', lat: 37.531537, lng: 126.501836 }
 ];
 
-function getKakaoApiKey() {
-  let key = process.env.KAKAO_REST_API_KEY || process.env.PUBLIC_KAKAO_MAP_KEY;
+function getKakaoRestApiKey() {
+  let key = process.env.KAKAO_REST_API_KEY;
   if (!key && fs.existsSync('.env')) {
     const envContent = fs.readFileSync('.env', 'utf8');
-    const m = envContent.match(/(?:KAKAO_REST_API_KEY|PUBLIC_KAKAO_MAP_KEY)=([^\r\n]+)/);
+    const m = envContent.match(/KAKAO_REST_API_KEY=([^\r\n]+)/);
     if (m) key = m[1].trim();
   }
   return key ? key.replace(/^['"]|['"]$/g, '') : null;
 }
 
-async function fetchKakaoGroundTruth(lng, lat, apiKey) {
+async function fetchKakaoGroundTruth(lng, lat, restApiKey) {
   const options = {
     hostname: 'dapi.kakao.com',
     path: `/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`,
     headers: {
-      'Authorization': `KakaoAK ${apiKey}`,
-      'Origin': 'http://localhost:4321',
-      'KA': 'sdk/1.0.0 os/javascript lang/ko-KR device/pc origin/http%3A%2F%2Flocalhost%3A4321'
+      'Authorization': `KakaoAK ${restApiKey}`
     }
   };
 
@@ -227,13 +225,17 @@ async function runTestSuite() {
   let apiKey = null;
 
   if (isOracleMode) {
-    apiKey = getKakaoApiKey();
+    apiKey = getKakaoRestApiKey();
     if (!apiKey) {
-      console.error('❌ 카카오 API 키를 찾을 수 없습니다.');
-      console.error('   .env 파일에 PUBLIC_KAKAO_MAP_KEY 또는 KAKAO_REST_API_KEY를 등록해 주세요.');
+      console.error('❌ 카카오 REST API 키(KAKAO_REST_API_KEY)가 설정되지 않았습니다.');
+      console.error('   실시간 오라클 테스트는 REST API 키가 필요합니다. (.env 파일 전용, 저장소 커밋 금지)\n');
+      console.error('💡 REST API 키 확인/발급 위치 (카카오 개발자 콘솔):');
+      console.error('   [내 애플리케이션] > [앱 설정] > [앱] > [플랫폼 키] > [REST API 키]\n');
+      console.error('   .env 파일에 다음 줄을 추가한 후 다시 실행해 주세요:');
+      console.error('   KAKAO_REST_API_KEY="your_rest_api_key_here"\n');
       process.exit(1);
     }
-    console.log('🔑 카카오 API 키 로드 완료 (.env 기반, 실시간 검증 시작)\n');
+    console.log('🔑 카카오 REST API 키 로드 완료 (.env 기반, 실시간 검증 시작)\n');
   } else {
     if (!fs.existsSync(fixturePath)) {
       console.error(`❌ 픽스처 파일이 없습니다: ${fixturePath}`);

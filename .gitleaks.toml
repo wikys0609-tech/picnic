@@ -1,0 +1,19 @@
+title = "Picnic Secret Detection Configuration"
+
+[allowlist]
+description = "Global allowlist for picnic public map keys, documentation, and build outputs"
+paths = [
+  '''(?i)README\.md''',
+  '''(?i)docs/.*''',
+  '''(?i)\.env\.example''',
+  '''(?i)dist/.*''',
+  '''(?i)tests/fixtures/.*''',
+  '''(?i)public/photos-debug\.json'''
+]
+regexes = [
+  '''PUBLIC_KAKAO_MAP_KEY''',
+  '''a7ec74f23964ef752a90e8bef05c19ec'''
+]
+commits = [
+  '''839c93343c7f871e04652df419a2aa7bbbb1611e'''
+]

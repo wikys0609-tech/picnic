@@ -162,17 +162,30 @@ npm run build
   # 1. 기본 오프라인 픽스처 검증 (초고속, 네트워크 무관, CI/CD 호환)
   npm test
 
-  # 2. 실시간 카카오 API 오라클 검증 및 픽스처 갱신 (.env 키 필요)
+  # 2. 실시간 카카오 REST API 오라클 검증 및 픽스처 갱신 (.env의 KAKAO_REST_API_KEY 필요)
   npm run test:oracle
   ```
 - **검증 메커니즘**:
-  - `npm test`는 외부 API 호출 없이 [`tests/fixtures/kakao-ground-truth.json`](tests/fixtures/kakao-ground-truth.json) 픽스처를 대조군으로 사용하여 1~2초 만에 오프라인으로 59개 지점을 완벽 검증합니다.
-  - `npm run test:oracle`은 카카오 로컬 API(`coord2regioncode`, 행정동 `H`)를 실시간 호출하여 위 공식 행정동 목록에 매핑되는 정답 구를 독립 대조군(Ground Truth)으로 삼아 픽스처를 검증 및 최신 상태로 갱신합니다.
+  - `npm test`는 외부 API 호출 없이 [`tests/fixtures/kakao-ground-truth.json`](tests/fixtures/kakao-ground-truth.json) 픽스처를 대조군으로 사용하여 1~2초 만에 오프라인으로 59개 지점을 완벽 검증합니다 (네트워크 및 API 키 불필요).
+  - `npm run test:oracle`은 카카오 로컬 REST API(`coord2regioncode`, 행정동 `H`)를 순수 REST API 키(`KAKAO_REST_API_KEY`)로 호출하여 공식 행정동 목록에 매핑되는 정답 구를 독립 대조군(Ground Truth)으로 삼아 픽스처를 검증 및 최신 상태로 갱신합니다. (브라우저 SDK 키나 헤더 위조 없이 표준 REST 규격 준수)
+    - **REST API 키 발급/확인 위치**: 카카오 개발자 콘솔 `[내 애플리케이션] > [앱 설정] > [앱] > [플랫폼 키] > [REST API 키]`
   - "송림4동행정복지센터 (lat: 37.478169, lng: 126.649538)"로 단일 정답 구역(제물포구)을 확정하여 경계 모호성을 완전히 해소했습니다.
   - 기존 21개 경계·예외 지점, 샘플 장소 10곳, 인천 개편 4개 구 경계선 양측 150m 지점 및 도서 지역(작약도, 세어도, 무의도, 실미도 등) **총 59개 지점에 대해 100% 일치(59/59 PASS)**를 입증합니다.
-- **API 키 관리 및 보안 원칙**:
-  - 카카오 API 키는 저장소 코드에 절대 커밋되지 않으며, `.gitignore`에 등록된 `.env` 파일에만 보관됩니다.
+- **API 키 분리 및 보안 관리 원칙**:
+  - **JavaScript 키 (`PUBLIC_KAKAO_MAP_KEY`)**: 웹사이트 지도 표시용 클라이언트 공개 키. 카카오 콘솔의 사이트 도메인 제한(`http://localhost:4321`, GitHub Pages URL 등)이 적용됩니다.
+  - **REST API 키 (`KAKAO_REST_API_KEY`)**: 오프라인 픽스처 갱신 전용 비밀 키. 저장소 커밋이 절대 금지되며 오직 로컬 `.env`에만 보관됩니다.
   - GitHub Actions 배포 워크플로(`.github/workflows/deploy.yml`)는 `npm run build`만 실행하므로 외부 실시간 API 테스트 실패로 인한 배포 중단 위험이 원천 차단되어 있습니다.
+
+### 5. 비밀 값(Secret) 커밋 누출 방지 체계 (2중 안전장치)
+프로젝트에 민감 정보(비밀 API 키, 서비스 계정 JSON, 인증서 등)가 절대 유입되지 않도록 2단계 차단망을 운영합니다:
+1. **로컬 Git Pre-commit 훅 (1차 차단)**:
+   - `git commit` 실행 시 [`scripts/check-secrets.mjs`](scripts/check-secrets.mjs)가 자동으로 실행되어 커밋 대상 파일과 추가된 diff를 0.1초 만에 검사합니다.
+   - `.env*`(단, `.env.example` 제외), 구글 서비스 계정 JSON, 개인 키(`.pem`, `.key`), GitHub 토큰 등이 포함된 경우 커밋이 즉시 에러와 함께 취소됩니다.
+   - `simple-git-hooks`가 연동되어 `npm run prepare`로 자동 등록됩니다.
+2. **GitHub Actions Gitleaks 원격 검사 (2차 감시)**:
+   - [`.github/workflows/secret-scan.yml`](.github/workflows/secret-scan.yml)이 `main` 브랜치 push(작성 도구의 GitHub API 직접 커밋 포함) 및 PR 시마다 백그라운드에서 실행됩니다.
+   - **배포 독립성**: 시크릿 검사 워크플로는 배포 워크플로(`deploy.yml`)와 독립적으로 병렬 실행되므로, 배포 속도를 지연시키거나 정상적인 글 작성을 방해하지 않고 보안 알림만 담당합니다.
+   - **오탐 방지 설정 ([`.gitleaks.toml`](.gitleaks.toml))**: 웹사이트 클라이언트에 공개되는 `PUBLIC_KAKAO_MAP_KEY`, 문서(README), 템플릿(`.env.example`), 빌드 산출물(`dist/`), 테스트 픽스처는 정상 허용 처리됩니다.
 
 ---
 
