@@ -400,9 +400,14 @@ const initialWalks = allWalks.map((w) => ({
 
           <!-- 사진 자동 감지 상태 카드 -->
           <div id="photo-match-card" class="p-4 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/80 dark:bg-stone-800/50 transition-all text-xs font-serif space-y-1.5">
-            <div id="photo-match-header" class="flex items-center gap-2 font-bold text-stone-700 dark:text-stone-300">
-              <span id="photo-match-icon">⚪</span>
-              <span id="photo-match-title">사진 폴더 상태 확인 중...</span>
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div id="photo-match-header" class="flex items-center gap-2 font-bold text-stone-700 dark:text-stone-300">
+                <span id="photo-match-icon">⚪</span>
+                <span id="photo-match-title">사진 폴더 상태 확인 중...</span>
+              </div>
+              <span id="photo-sync-time" class="text-[11px] font-sans text-stone-400 dark:text-stone-500">
+                마지막 동기화: 확인 중
+              </span>
             </div>
             <p id="photo-match-desc" class="text-stone-500 dark:text-stone-400 leading-relaxed">
               방문 일자와 장소를 선택하시면 일치하는 사진 폴더를 자동으로 찾아 연결합니다.
@@ -1139,6 +1144,7 @@ const initialWalks = allWalks.map((w) => ({
   const photoMatchIcon = document.getElementById('photo-match-icon');
   const photoMatchTitle = document.getElementById('photo-match-title');
   const photoMatchDesc = document.getElementById('photo-match-desc');
+  const photoSyncTime = document.getElementById('photo-sync-time');
   const ambiguousWrapper = document.getElementById('ambiguous-selector-wrapper');
   const selectAmbiguousFolder = document.getElementById('select-ambiguous-folder') as HTMLSelectElement | null;
   const btnToggleManualFolder = document.getElementById('btn-toggle-manual-folder');
@@ -1147,6 +1153,24 @@ const initialWalks = allWalks.map((w) => ({
   const inputPhotoFolder = document.getElementById('input-photo-folder') as HTMLInputElement | null;
   const btnResetAutoFolder = document.getElementById('btn-reset-auto-folder');
 
+  let lastSyncTimeStr = '';
+
+  function formatSyncTime(isoString: string): string {
+    if (!isoString) return '';
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return '';
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
+    } catch {
+      return '';
+    }
+  }
+
   // 폴더 데이터 로드 (public/photos/folders.json)
   async function loadFoldersData() {
     try {
@@ -1154,9 +1178,16 @@ const initialWalks = allWalks.map((w) => ({
       if (res.ok) {
         const data = await res.json();
         remoteFolders = Array.isArray(data.folders) ? data.folders : [];
+        if (data.syncedAt) {
+          lastSyncTimeStr = formatSyncTime(data.syncedAt);
+        }
       }
     } catch {
       // folders.json 미존재 시 빈 배열 유지
+    }
+
+    if (photoSyncTime) {
+      photoSyncTime.textContent = lastSyncTimeStr ? `마지막 동기화: ${lastSyncTimeStr}` : '마지막 동기화: 동기화 대기 중';
     }
     updatePhotoMatchStatus();
   }
@@ -1217,7 +1248,7 @@ const initialWalks = allWalks.map((w) => ({
       }
       if (photoMatchIcon) photoMatchIcon.textContent = '⚪';
       if (photoMatchTitle) photoMatchTitle.textContent = '방문 일자를 먼저 선택해 주세요';
-      if (photoMatchDesc) photoMatchDesc.textContent = '일자를 선택하시면 구글 드라이브의 해당 날짜 사진 폴더가 자동으로 감지됩니다.';
+      if (photoMatchDesc) photoMatchDesc.textContent = '일자를 선택하시면 구글 드라이브의 해당 날짜 사진 폴더가 자동으로 감지됩니다. (방금 드라이브에 올렸다면, 발행 후 빌드 때 자동으로 연결됩니다)';
       return;
     }
 
@@ -1237,7 +1268,9 @@ const initialWalks = allWalks.map((w) => ({
       }
       if (photoMatchIcon) photoMatchIcon.textContent = '⚪';
       if (photoMatchTitle) photoMatchTitle.textContent = '연결된 사진 폴더 없음 (글만 저장 가능)';
-      if (photoMatchDesc) photoMatchDesc.textContent = `스마트폰 드라이브에 아직 사진 폴더가 없어도 괜찮습니다. 글을 먼저 저장하고, 나중에 스마트폰 드라이브에 "${dateVal} 장소명" 폴더를 올리시면 다음 동기화 때 자동으로 연결됩니다.`;
+      if (photoMatchDesc) {
+        photoMatchDesc.innerHTML = `현재 빌드 기준 일치하는 사진 폴더가 없습니다. <strong>방금 드라이브에 올렸다면, 발행 후 빌드 때 자동으로 연결됩니다.</strong><br/><span class="text-[11px] text-stone-400 dark:text-stone-500 mt-0.5 block">(글을 먼저 저장하고 나중에 스마트폰 드라이브에 "${dateVal} 장소명" 폴더를 올리셔도 다음 동기화 때 자동 연결됩니다)</span>`;
+      }
       return;
     }
 
