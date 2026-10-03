@@ -15,7 +15,8 @@
     "import": "node scripts/import-csv.mjs",
     "sync:photos": "node scripts/sync-photos.mjs",
     "generate:geo": "node scripts/generate-conquest-geojson.mjs",
-    "test": "node scripts/test-boundary.mjs",
+    "test": "node scripts/test-boundary.mjs && node --experimental-strip-types scripts/test-photo-sorting.mjs",
+    "test:photos": "node --experimental-strip-types scripts/test-photo-sorting.mjs",
     "test:oracle": "node scripts/test-boundary.mjs --oracle",
     "check:secrets": "node scripts/check-secrets.mjs",
     "prepare": "simple-git-hooks"
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@turf/turf": "^7.4.0",
     "@types/node": "^26.6.3",
+    "exifr": "^7.1.3",
     "googleapis": "^182.0.0",
     "heic-decode": "^2.1.0",
     "kakao.maps.d.ts": "^0.1.40",

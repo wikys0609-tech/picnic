@@ -15,6 +15,7 @@ import path from 'node:path';
 import { google } from 'googleapis';
 import sharp from 'sharp';
 import decodeHeic from 'heic-decode';
+import exifr from 'exifr';
 
 const CACHE_FILE = path.resolve(process.cwd(), '.photo-cache.json');
 const OUTPUT_DIR = path.resolve(process.cwd(), 'public/photos');
@@ -98,7 +99,34 @@ async function streamToBuffer(stream) {
   });
 }
 
-// 4. 메인 동기화 함수
+// 4. Google Drive API 페이지네이션(nextPageToken) 전체 조회 헬퍼
+async function listAllDriveFiles(drive, params) {
+  const allFiles = [];
+  let pageToken = undefined;
+
+  let fieldsParam = params.fields;
+  if (fieldsParam && !fieldsParam.includes('nextPageToken')) {
+    fieldsParam = `nextPageToken, ${fieldsParam}`;
+  }
+
+  do {
+    const res = await drive.files.list({
+      ...params,
+      fields: fieldsParam,
+      pageSize: 100,
+      pageToken,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    const items = res.data.files || [];
+    allFiles.push(...items);
+    pageToken = res.data.nextPageToken || undefined;
+  } while (pageToken);
+
+  return allFiles;
+}
+
+// 5. 메인 동기화 함수
 async function syncPhotos() {
   console.log('\n==========================================');
   console.log('📷 소풍(Picnic) — 구글 드라이브 사진 파이프라인');
@@ -213,17 +241,13 @@ async function syncPhotos() {
     addLog(`⚠️ 접근 가능 폴더 목록 조회 실패: ${accErr.message}`);
   }
 
-  // 1. 루트 폴더 내의 산책별 서브폴더 목록 조회
+  // 1. 루트 폴더 내의 산책별 서브폴더 목록 조회 (nextPageToken 페이지네이션 적용)
   let folders = [];
   try {
-    const res = await drive.files.list({
+    folders = await listAllDriveFiles(drive, {
       q: `'${actualRootId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)',
-      pageSize: 100,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
     });
-    folders = res.data.files || [];
   } catch (err) {
     addLog(`❌ 루트 폴더의 서브폴더 목록 조회 실패: ${err.message}`);
   }
@@ -231,14 +255,11 @@ async function syncPhotos() {
   // 2. 만약 서브폴더가 없고, 접근 가능한 폴더 중에 자식 폴더나 seoul-forest 등이 있다면 후보에 추가
   if (folders.length === 0 && debugInfo.allAccessibleFolders.length > 0) {
     try {
-      const allAccessible = await drive.files.list({
+      const allAccessible = await listAllDriveFiles(drive, {
         q: `mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
         fields: 'files(id, name, parents)',
-        pageSize: 50,
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
       });
-      const candidates = (allAccessible.data.files || []).filter(
+      const candidates = (allAccessible || []).filter(
         f => f.id !== actualRootId && f.name !== 'picnic-photos'
       );
       if (candidates.length > 0) {
@@ -284,17 +305,13 @@ async function syncPhotos() {
       fs.mkdirSync(folderOutputDir, { recursive: true });
     }
 
-    // 폴더 내 이미지 파일 조회 (HEIC, HEIF 포함)
+    // 폴더 내 이미지 파일 조회 (HEIC, HEIF 포함, nextPageToken으로 100장 초과 사진도 끝까지 수집)
     let images = [];
     try {
-      const res = await drive.files.list({
+      images = await listAllDriveFiles(drive, {
         q: `'${folder.id}' in parents and (mimeType contains 'image/' or name contains '.jpg' or name contains '.png' or name contains '.jpeg' or name contains '.webp' or name contains '.heic' or name contains '.heif' or name contains '.HEIC' or name contains '.HEIF') and trashed = false`,
         fields: 'files(id, name, mimeType, md5Checksum, modifiedTime, size)',
-        pageSize: 100,
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
       });
-      images = res.data.files || [];
     } catch (err) {
       addLog(`⚠️ [${folderName}] 사진 목록 조회 실패: ${err.message}`);
       totalErrors++;
@@ -303,10 +320,17 @@ async function syncPhotos() {
 
     if (images.length === 0) continue;
 
+    if (images.length > 30) {
+      addLog(`⚠️ [${folderName}] 사진이 ${images.length}장으로 권장 장수(10~30장)를 초과했습니다. 모바일 환경 최적화를 위해 10~30장을 권장합니다. (모든 사진은 정상 처리됩니다)`);
+    }
+
     addLog(`📸 [${folderName}] ${images.length}개 사진 동기화 확인...`);
 
     // 파일 이름순 정렬
     images.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+    const hasExplicitCover = images.some(img => img.name.toLowerCase().startsWith('cover.'));
+    const folderPhotos = [];
 
     for (let i = 0; i < images.length; i++) {
       const file = images[i];
@@ -317,6 +341,8 @@ async function syncPhotos() {
       const cacheKey = `${folderName}/${file.id}`;
       const cached = cache.files[cacheKey];
 
+      let takenAt = null;
+
       // 캐시 유효성 검사 (md5Checksum 일치 및 실제 파일 존재)
       if (
         cached &&
@@ -324,84 +350,131 @@ async function syncPhotos() {
         fs.existsSync(targetFilePath)
       ) {
         totalCached++;
-        continue;
-      }
+        takenAt = cached.takenAt ?? null;
+      } else {
+        // 새 파일 또는 변경된 파일 다운로드
+        try {
+          const downloadRes = await drive.files.get(
+            { fileId: file.id, alt: 'media', supportsAllDrives: true },
+            { responseType: 'stream' }
+          );
 
-      // 새 파일 또는 변경된 파일 다운로드
-      try {
-        const downloadRes = await drive.files.get(
-          { fileId: file.id, alt: 'media', supportsAllDrives: true },
-          { responseType: 'stream' }
-        );
+          const buffer = await streamToBuffer(downloadRes.data);
 
-        const buffer = await streamToBuffer(downloadRes.data);
-
-        // HEIC/HEIF 포맷 여부 판별
-        const isHeic =
-          /\.(heic|heif)$/i.test(file.name) ||
-          file.mimeType?.toLowerCase().includes('heic') ||
-          file.mimeType?.toLowerCase().includes('heif');
-
-        let imageBufferForSharp;
-        let sharpOptions = {};
-
-        if (isHeic) {
+          // EXIF 메타데이터 제거 전 DateTimeOriginal 추출
           try {
-            console.log(`   📱 아이폰 HEIC 사진 감지: ${file.name} 디코딩 중...`);
-            const { data, width, height } = await decodeHeic({ buffer });
-            imageBufferForSharp = Buffer.from(data);
-            sharpOptions = {
-              raw: { width, height, channels: 4 },
-            };
-          } catch (heicErr) {
-            console.warn(`   ⚠️ HEIC 디코딩 실패, 기본 버퍼 시도:`, heicErr.message);
+            const exif = await exifr.parse(buffer, ['DateTimeOriginal']);
+            if (exif?.DateTimeOriginal) {
+              const d = exif.DateTimeOriginal instanceof Date ? exif.DateTimeOriginal : new Date(exif.DateTimeOriginal);
+              if (!isNaN(d.getTime())) {
+                takenAt = d.toISOString();
+              }
+            }
+          } catch {
+            // EXIF가 없거나 파싱 불가 시 takenAt = null
+          }
+
+          // HEIC/HEIF 포맷 여부 판별
+          const isHeic =
+            /\.(heic|heif)$/i.test(file.name) ||
+            file.mimeType?.toLowerCase().includes('heic') ||
+            file.mimeType?.toLowerCase().includes('heif');
+
+          let imageBufferForSharp;
+          let sharpOptions = {};
+
+          if (isHeic) {
+            try {
+              console.log(`   📱 아이폰 HEIC 사진 감지: ${file.name} 디코딩 중...`);
+              const { data, width, height } = await decodeHeic({ buffer });
+              imageBufferForSharp = Buffer.from(data);
+              sharpOptions = {
+                raw: { width, height, channels: 4 },
+              };
+            } catch (heicErr) {
+              console.warn(`   ⚠️ HEIC 디코딩 실패, 기본 버퍼 시도:`, heicErr.message);
+              imageBufferForSharp = buffer;
+            }
+          } else {
             imageBufferForSharp = buffer;
           }
-        } else {
-          imageBufferForSharp = buffer;
-        }
 
-        // sharp를 통한 리사이징, WebP 변환 및 EXIF/GPS 완전 제거
-        // (.withMetadata()를 호출하지 않으므로 Sharp가 모든 EXIF/GPS 메타데이터를 자동 제거)
-        await sharp(imageBufferForSharp, sharpOptions)
-          .rotate() // 원본 방향에 맞게 회전 보정
-          .resize({
-            width: 1600,
-            height: 1600,
-            fit: 'inside',
-            withoutEnlargement: true,
-          })
-          .webp({ quality: 82 })
-          .toFile(targetFilePath);
-
-        // 커버 사진 자동 생성 (이름이 cover.* 이거나 첫 번째 사진인 경우)
-        const isCover = file.name.toLowerCase().startsWith('cover.') || i === 0;
-        const coverFilePath = path.join(folderOutputDir, 'cover.webp');
-        if (isCover && (!fs.existsSync(coverFilePath) || file.name.toLowerCase().startsWith('cover.'))) {
+          // sharp를 통한 리사이징, WebP 변환 및 EXIF/GPS 완전 제거
+          // (.withMetadata()를 호출하지 않으므로 Sharp가 모든 EXIF/GPS 메타데이터를 자동 제거)
           await sharp(imageBufferForSharp, sharpOptions)
-            .rotate()
+            .rotate() // 원본 방향에 맞게 회전 보정
             .resize({
-              width: 800,
-              height: 800,
+              width: 1600,
+              height: 1600,
               fit: 'inside',
               withoutEnlargement: true,
             })
-            .webp({ quality: 85 })
-            .toFile(coverFilePath);
+            .webp({ quality: 82 })
+            .toFile(targetFilePath);
+
+          // 커버 사진 자동 생성 (이름이 cover.* 이거나 첫 번째 사진인 경우)
+          const isCoverCandidate = file.name.toLowerCase().startsWith('cover.') || (!hasExplicitCover && i === 0);
+          const coverFilePath = path.join(folderOutputDir, 'cover.webp');
+          if (isCoverCandidate && (!fs.existsSync(coverFilePath) || file.name.toLowerCase().startsWith('cover.'))) {
+            await sharp(imageBufferForSharp, sharpOptions)
+              .rotate()
+              .resize({
+                width: 800,
+                height: 800,
+                fit: 'inside',
+                withoutEnlargement: true,
+              })
+              .webp({ quality: 85 })
+              .toFile(coverFilePath);
+          }
+
+          cache.files[cacheKey] = {
+            name: file.name,
+            targetFileName,
+            md5Checksum: file.md5Checksum,
+            modifiedTime: file.modifiedTime,
+            takenAt,
+            syncedAt: new Date().toISOString(),
+          };
+
+          totalDownloaded++;
+          addLog(`   ✓ 변환 완료: ${targetFileName} (1600px WebP, EXIF 제거됨${takenAt ? `, 촬영: ${takenAt}` : ''})`);
+        } catch (err) {
+          addLog(`   ❌ 변환 실패 (${file.name}): ${err.message}`);
+          totalErrors++;
+          continue;
         }
+      }
 
-        cache.files[cacheKey] = {
-          name: file.name,
-          md5Checksum: file.md5Checksum,
-          modifiedTime: file.modifiedTime,
-          syncedAt: new Date().toISOString(),
-        };
+      folderPhotos.push({
+        file: targetFileName,
+        originalName: file.name,
+        takenAt,
+      });
+    }
 
-        totalDownloaded++;
-        addLog(`   ✓ 변환 완료: ${targetFileName} (1600px WebP, EXIF 제거됨)`);
-      } catch (err) {
-        addLog(`   ❌ 변환 실패 (${file.name}): ${err.message}`);
-        totalErrors++;
+    // 만약 별도의 cover.webp 파일이 생성되어 있고 folderPhotos에 포함되지 않았다면 등록
+    const coverFilePath = path.join(folderOutputDir, 'cover.webp');
+    if (fs.existsSync(coverFilePath) && !folderPhotos.some(p => p.file === 'cover.webp')) {
+      folderPhotos.unshift({
+        file: 'cover.webp',
+        originalName: 'cover.webp (auto-generated)',
+        takenAt: folderPhotos[0]?.takenAt ?? null,
+      });
+    }
+
+    // 폴더별 manifest.json 작성 (사진 목록, 원본명, EXIF 촬영 시각)
+    if (folderPhotos.length > 0) {
+      const manifestPath = path.join(folderOutputDir, 'manifest.json');
+      const manifestData = {
+        folderName,
+        syncedAt: new Date().toISOString(),
+        photos: folderPhotos,
+      };
+      try {
+        fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2), 'utf8');
+      } catch (manifestErr) {
+        addLog(`   ⚠️ [${folderName}] manifest.json 저장 실패: ${manifestErr.message}`);
       }
     }
   }

@@ -132,20 +132,63 @@ export function resolveWalkPhotos(
     return { folderName: matchedDirName, coverFile: null, photoFiles: [] };
   }
 
-  // 커버 파일 선정: preferredCover가 있으면 우선, 아니면 cover.*, 없으면 첫 번째 사진
+  // manifest.json이 존재하면 로드하여 EXIF 촬영 시각(takenAt) 매핑 구성
+  const manifestMap: Record<string, string | null> = {};
+  const manifestPath = path.join(targetDir, 'manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    try {
+      const manifestRaw = fs.readFileSync(manifestPath, 'utf8');
+      const manifestData = JSON.parse(manifestRaw);
+      if (Array.isArray(manifestData?.photos)) {
+        for (const item of manifestData.photos) {
+          if (item?.file) {
+            manifestMap[item.file] = item.takenAt || null;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 커버 파일 선정: preferredCover가 있으면 우선, 아니면 cover.* 검색
   let coverFile: string | null = null;
   if (files.includes(preferredCover)) {
     coverFile = preferredCover;
   } else {
-    coverFile = files.find((f) => f.toLowerCase().startsWith('cover.')) || files[0] || null;
+    coverFile = files.find((f) => f.toLowerCase().startsWith('cover.')) || null;
   }
 
-  // 커버가 맨 앞에 오고, 나머지는 파일명 순 정렬
-  const photoFiles = [...files].sort((a, b) => {
-    if (a === coverFile) return -1;
-    if (b === coverFile) return 1;
+  // 사진 정렬 기준:
+  // 1. coverFile 최우선 (항상 맨 첫 장 표지 유지)
+  // 2. EXIF 촬영 시각(DateTimeOriginal / takenAt) 오름차순 (시간순)
+  // 3. 촬영 시각이 없는 사진(스크린샷, 메신저 등)은 파일 이름 자연 정렬(Natural Numeric Sort)로 뒤에 배치
+  // 4. 촬영 시각이 동일한 경우 파일 이름 자연 정렬로 순서 결정
+  const comparePhotos = (a: string, b: string): number => {
+    if (coverFile) {
+      if (a === coverFile && b !== coverFile) return -1;
+      if (b === coverFile && a !== coverFile) return 1;
+    }
+
+    const timeA = manifestMap[a];
+    const timeB = manifestMap[b];
+
+    if (timeA && timeB) {
+      const diff = new Date(timeA).getTime() - new Date(timeB).getTime();
+      if (diff !== 0) return diff;
+    } else if (timeA && !timeB) {
+      return -1; // 촬영 시각 있는 사진 우선
+    } else if (!timeA && timeB) {
+      return 1;
+    }
+
     return a.localeCompare(b, undefined, { numeric: true });
-  });
+  };
+
+  const photoFiles = [...files].sort(comparePhotos);
+
+  // coverFile이 명시적으로 지정되지 않은 경우, 시간순/자연정렬 첫 번째 사진을 커버로 지정
+  if (!coverFile && photoFiles.length > 0) {
+    coverFile = photoFiles[0];
+  }
 
   return {
     folderName: matchedDirName,
